@@ -116,22 +116,52 @@ Under official Oregon Department of Education accountability reporting standards
   The frontend write-ahead engine locks `tst_valid_cd = 'Y'` and `tst_atmpt_cd = 'P'` directly in `sonar_math_offline_cache` upon Item 5 submission. Even if the home network is severed for the entirety of items 5–15, all responses are queued and flushed with `sync_source: 'offline_indexeddb_replay'`, transitioning to `TstAtmptCd = 'C'` upon completion without risking invalidation.
 * **Verification Suite:** Validated via automated test [`tests/ode_attemptedness_verification.ts`](file:///C:/Users/Workstation/.gemini/antigravity-ide/scratch/sonar-math-mvp/tests/ode_attemptedness_verification.ts) with 100% test pass confirmation across offline dropouts, 5-item threshold clearance, 15-item completion, and idempotent batch replay.
 
+## 5. Question Engine & Immutable Static Schema (`questions.json`)
+
+To eliminate hardcoded math logic from frontend rendering components, the assessment is driven by an immutable data contract [`src/data/questions.json`](file:///C:/Users/Workstation/.gemini/antigravity-ide/scratch/sonar-math-mvp/src/data/questions.json) validated against [`src/schemas/question.schema.ts`](file:///C:/Users/Workstation/.gemini/antigravity-ide/scratch/sonar-math-mvp/src/schemas/question.schema.ts).
+
+### 5.1 Psychometric Matrix (15-Item 4th-Grade Fractions Diagnostic)
+The diagnostic spans all 3 core pedagogical phases of CCSS 4.NF across 3 distinct representation modalities:
+
+| Phase | Focus Domain | Discrete Items | Continuous Items | Abstract Items | Total |
+| :--- | :--- | :---: | :---: | :---: | :---: |
+| **Phase 1** | Visual Equivalence & Foundations (4.NF.A) | 2 (Q2, Q4) | 2 (Q1, Q3) | 1 (Q5) | **5** |
+| **Phase 2** | Decomposition & Like Operations (4.NF.B) | 2 (Q7, Q10) | 2 (Q6, Q9) | 1 (Q8) | **5** |
+| **Phase 3** | Multiplication & Comparison (4.NF.B/A) | 1 (Q11) | 2 (Q12, Q14) | 2 (Q13, Q15) | **5** |
+| **Total** | | **5 Items** | **6 Items** | **4 Items** | **15 Items** |
+
+### 5.2 First 5 Questions Validation Summary
+
+| Index | Phase | Modality | Mechanic Type | Prompt Summary | Target / Answer |
+| :---: | :---: | :---: | :--- | :--- | :--- |
+| **Q1** | 1 | Continuous | `graduated_cylinder_pour` | Pour water until cylinder is 3/4 full | $0.75$ ($750\text{ mL}$ of $1000\text{ mL}$) $\pm 2\%$ snap |
+| **Q2** | 1 | Discrete | `unit_block_grid` | Shade blocks to show 2/3 of 12-block rectangle | $8$ shaded cells ($8/12 \equiv 2/3$) |
+| **Q3** | 1 | Continuous | `number_line_slider` | Place marker at 5/8 on number line $[0, 1]$ | $0.625$ ($\pm 0.02$ snap) |
+| **Q4** | 1 | Discrete | `unit_block_grid` | Cross out blocks to show $1 - 3/10$ on 10-block bar | Cross out $3$ cells, $7/10$ remaining |
+| **Q5** | 1 | Abstract | `multiple_choice` | Identify fraction equivalent to 2/4 | Option A ($1/2$) |
+
 ---
 
-## 5. Implementation Roadmap
+## 6. Implementation Roadmap
 
 | Milestone | Deliverable | Status |
 | :--- | :--- | :--- |
 | **Phase 1 & 2** | Git Safety Net & Local Repo Scaffold | **Complete** (Commit `5230d29`) |
 | **Task 1** | COPPA Dual-Schema DDL & Hardware Telemetry Migration | **Complete** (`20261015000001_coppa_vault_and_telemetry.sql`) |
-| **Task 1** | TypeScript Data Contracts & Normalized Payload Types | **Complete** (`types/database.types.ts`) |
-| **Task 2** | Immutable Question Engine (`questions.json`, 15 items, 3 phases) | **Next** |
-| **Task 3** | Responsive Manipulative UI (Pointer Events, Continuous & Discrete) | Pending |
-| **Task 4** | Micro-Telemetry Listener & Offline IndexedDB Replay Queue | Pending |
+| **Task 1** | ODE State Accountability Trigger (`TstAtmptCd`, `TstValidCd`) | **Complete** (Commit `7760159`) |
+| **Task 1** | TypeScript Data Contracts & IndexedDB Write-Ahead Cache | **Complete** (`src/services/storage/`) |
+| **Task 2** | Immutable Question Engine (`questions.json`, 15 items, 3 phases) | **Complete** (`src/data/questions.json`) |
+| **Task 3** | Responsive Manipulative UI (Pointer Events, Continuous & Discrete) | **Next** |
+| **Task 4** | Micro-Telemetry Listener & Offline IndexedDB Replay Queue | In Progress |
 
 ---
 
-## 6. Artifact & File Directory
+## 7. Artifact & File Directory
 - Migration DDL: [`supabase/migrations/20261015000001_coppa_vault_and_telemetry.sql`](file:///C:/Users/Workstation/.gemini/antigravity-ide/scratch/sonar-math-mvp/supabase/migrations/20261015000001_coppa_vault_and_telemetry.sql)
 - Database Typings: [`types/database.types.ts`](file:///C:/Users/Workstation/.gemini/antigravity-ide/scratch/sonar-math-mvp/types/database.types.ts)
+- Question Schema: [`src/schemas/question.schema.ts`](file:///C:/Users/Workstation/.gemini/antigravity-ide/scratch/sonar-math-mvp/src/schemas/question.schema.ts)
+- Question Data: [`src/data/questions.json`](file:///C:/Users/Workstation/.gemini/antigravity-ide/scratch/sonar-math-mvp/src/data/questions.json)
+- Question Verification Test: [`tests/question_schema_verification.ts`](file:///C:/Users/Workstation/.gemini/antigravity-ide/scratch/sonar-math-mvp/tests/question_schema_verification.ts)
+- ODE Verification Test: [`tests/ode_attemptedness_verification.ts`](file:///C:/Users/Workstation/.gemini/antigravity-ide/scratch/sonar-math-mvp/tests/ode_attemptedness_verification.ts)
 - System Architecture: [`architecture.md`](file:///C:/Users/Workstation/.gemini/antigravity-ide/scratch/sonar-math-mvp/architecture.md)
+
