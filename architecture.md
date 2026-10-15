@@ -140,9 +140,29 @@ The diagnostic spans all 3 core pedagogical phases of CCSS 4.NF across 3 distinc
 | **Q4** | 1 | Discrete | `unit_block_grid` | Cross out blocks to show $1 - 3/10$ on 10-block bar | Cross out $3$ cells, $7/10$ remaining |
 | **Q5** | 1 | Abstract | `multiple_choice` | Identify fraction equivalent to 2/4 | Option A ($1/2$) |
 
+## 6. Manipulative Canvas UI & Interactive Sandbox
+
+The interactive UI components have been built and verified in a live browser testing sandbox:
+
+### 6.1 Continuous Fluid Canvas (`GraduatedCylinderCanvas.ts`)
+* **Procedural 2D Rendering:** Utilizes HTML5 Canvas scaled to `window.devicePixelRatio` for retina clarity. Features procedural liquid shading, dynamic surface meniscus, and sine-wave fluid perturbation during active drag-and-pour operations.
+* **Invariant $\pm 2\%$ Snap Tolerance:** Normalized fractional volume space prevents motor-skill jitter from creating false mathematical misconceptions. When a student pours within $[0.73, 0.77]$ for $3/4$, the liquid magnetically locks to $0.75$, displaying an emerald green glow and snap badge.
+* **Large Touch Targets:** Features a $\ge 44\text{px}$ diameter circular touch handle equipped with pointer capture (`setPointerCapture(e.pointerId)`) and CSS `touch-action: none`.
+
+### 6.2 Discrete Snapping Coordinate Grid (`DiscreteBlockGrid.ts`)
+* **Tablet-Optimized Touch Geometry:** Unit blocks render at $\ge 56\text{px} \times 56\text{px}$ minimum dimensions with generous interactive padding and clear visual state transitions.
+* **Multi-Action Mechanics:**
+  * `select_and_shade`: Tap or swipe across blocks to partition (e.g. shading $8$ of $12$ blocks for $2/3$).
+  * `cross_out`: Interactive strike-through with SVG diagonal cross-hatching to represent subtraction ($1 - 3/10$).
+* **Micro-Telemetry Integration:** Captures `first_interaction_ms`, `latency_ms`, input modality (`mouse`, `touch`, `pen`), and friction markers in real time.
+
+### 6.3 Browser Verification & Live Test Harness
+* Served locally at `http://127.0.0.1:8080/index.html`.
+* Tested end-to-end via automated browser subagent: verified graduated cylinder pouring, 2% snap locking, discrete unit grid shading, home Wi-Fi dropout simulation, and live state transition to `TstAtmptCd: 'P'`, `TstValidCd: 'Y'` upon submitting 5 items.
+
 ---
 
-## 6. Implementation Roadmap
+## 7. Implementation Roadmap
 
 | Milestone | Deliverable | Status |
 | :--- | :--- | :--- |
@@ -151,17 +171,19 @@ The diagnostic spans all 3 core pedagogical phases of CCSS 4.NF across 3 distinc
 | **Task 1** | ODE State Accountability Trigger (`TstAtmptCd`, `TstValidCd`) | **Complete** (Commit `7760159`) |
 | **Task 1** | TypeScript Data Contracts & IndexedDB Write-Ahead Cache | **Complete** (`src/services/storage/`) |
 | **Task 2** | Immutable Question Engine (`questions.json`, 15 items, 3 phases) | **Complete** (`src/data/questions.json`) |
-| **Task 3** | Responsive Manipulative UI (Pointer Events, Continuous & Discrete) | **Next** |
-| **Task 4** | Micro-Telemetry Listener & Offline IndexedDB Replay Queue | In Progress |
+| **Task 3** | Responsive Manipulative UI (Pointer Events, Continuous & Discrete) | **Complete** (Commit `c47cc20`) |
+| **Task 4** | Micro-Telemetry Listener & Offline IndexedDB Replay Queue | **Ready to Execute** |
 
 ---
 
-## 7. Artifact & File Directory
+## 8. Artifact & File Directory
 - Migration DDL: [`supabase/migrations/20261015000001_coppa_vault_and_telemetry.sql`](file:///C:/Users/Workstation/.gemini/antigravity-ide/scratch/sonar-math-mvp/supabase/migrations/20261015000001_coppa_vault_and_telemetry.sql)
 - Database Typings: [`types/database.types.ts`](file:///C:/Users/Workstation/.gemini/antigravity-ide/scratch/sonar-math-mvp/types/database.types.ts)
 - Question Schema: [`src/schemas/question.schema.ts`](file:///C:/Users/Workstation/.gemini/antigravity-ide/scratch/sonar-math-mvp/src/schemas/question.schema.ts)
 - Question Data: [`src/data/questions.json`](file:///C:/Users/Workstation/.gemini/antigravity-ide/scratch/sonar-math-mvp/src/data/questions.json)
-- Question Verification Test: [`tests/question_schema_verification.ts`](file:///C:/Users/Workstation/.gemini/antigravity-ide/scratch/sonar-math-mvp/tests/question_schema_verification.ts)
-- ODE Verification Test: [`tests/ode_attemptedness_verification.ts`](file:///C:/Users/Workstation/.gemini/antigravity-ide/scratch/sonar-math-mvp/tests/ode_attemptedness_verification.ts)
+- Continuous Manipulative: [`src/components/GraduatedCylinderCanvas.ts`](file:///C:/Users/Workstation/.gemini/antigravity-ide/scratch/sonar-math-mvp/src/components/GraduatedCylinderCanvas.ts)
+- Discrete Manipulative: [`src/components/DiscreteBlockGrid.ts`](file:///C:/Users/Workstation/.gemini/antigravity-ide/scratch/sonar-math-mvp/src/components/DiscreteBlockGrid.ts)
+- Live Sandbox: [`public/index.html`](file:///C:/Users/Workstation/.gemini/antigravity-ide/scratch/sonar-math-mvp/public/index.html)
+- Sandbox Application Logic: [`public/app.js`](file:///C:/Users/Workstation/.gemini/antigravity-ide/scratch/sonar-math-mvp/public/app.js)
 - System Architecture: [`architecture.md`](file:///C:/Users/Workstation/.gemini/antigravity-ide/scratch/sonar-math-mvp/architecture.md)
 
