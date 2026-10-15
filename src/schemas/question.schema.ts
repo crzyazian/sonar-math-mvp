@@ -66,6 +66,28 @@ export interface NumericInputConfig {
   target_whole?: number;
 }
 
+export interface IsomorphicVariant {
+  variant_id: string;
+  prompt_text: string;
+  sub_text?: string;
+  target_fraction: { numerator: number; denominator: number };
+  target_normalized: number;
+  mechanic_payload: MechanicConfig;
+}
+
+export interface MetacognitiveFeedback {
+  item_index: number;
+  selected_misconception_tag:
+    | 'conceptual_fractions_different_denominators'
+    | 'motor_slip_or_touch_error'
+    | 'misread_or_unclear_prompt'
+    | 'wild_guess'
+    | 'other';
+  student_reflection_note?: string;
+  isomorphic_retry_attempted: boolean;
+  isomorphic_retry_correct?: boolean;
+}
+
 export type MechanicConfig =
   | { type: 'graduated_cylinder_pour'; config: GraduatedCylinderConfig }
   | { type: 'unit_block_grid'; config: UnitBlockGridConfig }
@@ -90,6 +112,7 @@ export interface DiagnosticQuestion {
   mechanic_payload: MechanicConfig;
   seda_domain: '4.NF.A (Equivalence)' | '4.NF.B (Operations)' | '4.NF.C (Decimals/Benchmarks)';
   pedagogical_objective: string;
+  isomorphic_variant?: IsomorphicVariant;
 }
 
 export interface QuestionsPayload {

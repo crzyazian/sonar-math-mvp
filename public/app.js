@@ -4,11 +4,13 @@
  * - questions.json diagnostic items
  * - GraduatedCylinderCanvas (Continuous Fluid with ±2% snap)
  * - DiscreteBlockGrid (Discrete snapping unit blocks with tablet targets)
- * - Micro-Telemetry HUD (performance.now, latency, friction markers)
+ * - Zero-Pressure Student Mode (Micro-telemetry logs silently in background)
+ * - Researcher HUD Toggle (Dev view for latency, friction, and offline queue)
+ * - Post-Assessment Metacognitive Reflection & Isomorphic Retry Module
  * - IndexedDB write-ahead cache simulation & Oregon ODE threshold monitor
  */
 
-// 1. Diagnostic Questions Data
+// 1. Diagnostic Questions Data with Isomorphic Variants
 const QUESTIONS = [
   {
     item_index: 1,
@@ -16,11 +18,18 @@ const QUESTIONS = [
     modality: "continuous",
     mechanic_type: "graduated_cylinder_pour",
     prompt_text: "Pour water into the graduated cylinder until it is exactly 3/4 full.",
-    sub_text: "Drag the water handle to pour. It magnetically snaps when you are within ±2% of 3/4 (750 mL).",
+    sub_text: "Drag the water handle to pour. Release when you are close to 3/4 (750 mL).",
     target_ratio: 0.75,
     max_capacity_ml: 1000,
     unit_label: "mL",
     target_fraction: { numerator: 3, denominator: 4 },
+    isomorphic_variant: {
+      prompt_text: "Try this similar one: Pour water until the cylinder is 4/5 full (800 mL).",
+      sub_text: "Apply what you learned with fifths!",
+      target_ratio: 0.80,
+      max_capacity_ml: 1000,
+      target_fraction: { numerator: 4, denominator: 5 }
+    }
   },
   {
     item_index: 2,
@@ -34,6 +43,15 @@ const QUESTIONS = [
     total_cells: 12,
     target_count: 8,
     action_mode: "select_and_shade",
+    isomorphic_variant: {
+      prompt_text: "Try this similar one: Shade 3/4 of the 12-block rectangle.",
+      sub_text: "How many blocks make 3/4 of 12?",
+      grid_rows: 3,
+      grid_columns: 4,
+      total_cells: 12,
+      target_count: 9,
+      action_mode: "select_and_shade"
+    }
   },
   {
     item_index: 3,
@@ -41,7 +59,7 @@ const QUESTIONS = [
     modality: "continuous",
     mechanic_type: "graduated_cylinder_pour",
     prompt_text: "Pour liquid into the beaker to reach 1/2 of 1000 mL (500 mL).",
-    sub_text: "Release within the ±2% snap window to achieve a perfect benchmark pour.",
+    sub_text: "Release near the halfway mark.",
     target_ratio: 0.50,
     max_capacity_ml: 1000,
     unit_label: "mL",
@@ -67,7 +85,7 @@ const QUESTIONS = [
     modality: "discrete",
     mechanic_type: "unit_block_grid",
     prompt_text: "Shade blocks to show 3/6 (one half) of the 6-block strip.",
-    sub_text: "This is Item 5! Submitting this item officially clears the Oregon ODE 5-item validity rule.",
+    sub_text: "Show what one half looks like using 6 unit blocks.",
     grid_rows: 1,
     grid_columns: 6,
     total_cells: 6,
@@ -76,8 +94,9 @@ const QUESTIONS = [
   }
 ];
 
-// 2. State & Telemetry Store
+// 2. Application & Silent Telemetry State
 const AppState = {
+  isDevMode: false, // Default to Student Mode (zero pressure, no visible timers)
   activeQuestionIndex: 0,
   activeComponent: null,
   mountTimeMs: performance.now(),
@@ -96,6 +115,11 @@ const AppState = {
   tstAtmptCd: 'I',
   tstValidCd: 'N',
   odeValidityCleared: false,
+
+  // Post-Assessment State
+  isCelebrationView: false,
+  selectedMetacognitiveReason: null,
+  retryComponent: null,
 };
 
 // 3. Procedural Graduated Cylinder Canvas Class
@@ -184,7 +208,6 @@ class CylinderComponent {
       this.currentRatio = this.q.target_ratio;
       this.isSnapped = true;
     } else {
-      // Check intermediate quarter ticks (0.25, 0.50, 0.75, 1.0)
       const major = [0.25, 0.50, 0.75, 1.0];
       let snapMajor = false;
       for (const t of major) {
@@ -310,13 +333,11 @@ class CylinderComponent {
       this.ctx.strokeStyle = isTarget ? '#3B82F6' : isMajor ? '#E2E8F0' : '#475569';
       this.ctx.lineWidth = isTarget ? 3 : isMajor ? 2 : 1;
 
-      // Left tick
       this.ctx.beginPath();
       this.ctx.moveTo(m.cylLeft, y);
       this.ctx.lineTo(m.cylLeft + (isMajor ? 16 : 8), y);
       this.ctx.stroke();
 
-      // Right tick
       this.ctx.beginPath();
       this.ctx.moveTo(m.cylLeft + m.cylWidth, y);
       this.ctx.lineTo(m.cylLeft + m.cylWidth - (isMajor ? 16 : 8), y);
@@ -368,7 +389,6 @@ class CylinderComponent {
     this.ctx.lineWidth = 2.5;
     this.ctx.stroke();
 
-    // Arrows
     this.ctx.fillStyle = '#FFFFFF';
     this.ctx.beginPath();
     this.ctx.moveTo(handleX, handleY - 8);
@@ -402,8 +422,6 @@ class GridComponent {
     this.q = q;
     this.highlighted = new Set(q.initial_highlighted || []);
     this.crossedOut = new Set();
-    this.isPointerDown = false;
-    this.dragAction = null;
 
     this.root = document.createElement('div');
     this.root.className = 'discrete-block-grid-wrapper';
@@ -512,7 +530,6 @@ function mountQuestion(index) {
   document.getElementById('prompt-title').textContent = q.prompt_text;
   document.getElementById('prompt-subtitle').textContent = q.sub_text;
 
-  // Update tabs
   document.querySelectorAll('.item-tab').forEach((tab, idx) => {
     tab.classList.toggle('is-active', idx === index);
   });
@@ -530,44 +547,56 @@ function mountQuestion(index) {
   }
 }
 
-// 6. Micro-Telemetry HUD & Oregon ODE Accountability State
+// 6. Micro-Telemetry HUD (Visible ONLY in Developer Mode)
 function updateHUD() {
   const latency = performance.now() - AppState.mountTimeMs;
   AppState.currentLatencyMs = latency;
 
-  document.getElementById('telemetry-first-interaction').textContent = AppState.firstInteractionMs > 0 ? `${AppState.firstInteractionMs.toFixed(0)} ms` : '-- ms';
-  document.getElementById('telemetry-latency').textContent = `${(latency / 1000).toFixed(1)} s`;
-  document.getElementById('telemetry-input').textContent = AppState.pointerType.toUpperCase();
-  document.getElementById('telemetry-current-val').textContent = AppState.currentValueDisplay;
-  document.getElementById('telemetry-friction').textContent = `${AppState.frictionEventsCount} events`;
+  const firstTouchElem = document.getElementById('telemetry-first-interaction');
+  if (firstTouchElem) {
+    firstTouchElem.textContent = AppState.firstInteractionMs > 0 ? `${AppState.firstInteractionMs.toFixed(0)} ms` : '-- ms';
+  }
+  const latencyElem = document.getElementById('telemetry-latency');
+  if (latencyElem) {
+    latencyElem.textContent = `${(latency / 1000).toFixed(1)} s`;
+  }
+  const inputElem = document.getElementById('telemetry-input');
+  if (inputElem) {
+    inputElem.textContent = AppState.pointerType.toUpperCase();
+  }
+  const currentValElem = document.getElementById('telemetry-current-val');
+  if (currentValElem) {
+    currentValElem.textContent = AppState.currentValueDisplay;
+  }
+  const frictionElem = document.getElementById('telemetry-friction');
+  if (frictionElem) {
+    frictionElem.textContent = `${AppState.frictionEventsCount} events`;
+  }
 
   const snapTag = document.getElementById('telemetry-snap');
-  if (AppState.snapApplied) {
-    snapTag.textContent = 'ACTIVE (±2%)';
-    snapTag.className = 'metric-value highlight-green';
-  } else {
-    snapTag.textContent = 'SEEKING...';
-    snapTag.className = 'metric-value';
+  if (snapTag) {
+    if (AppState.snapApplied) {
+      snapTag.textContent = 'ACTIVE (±2%)';
+      snapTag.className = 'metric-value highlight-green';
+    } else {
+      snapTag.textContent = 'SEEKING...';
+      snapTag.className = 'metric-value';
+    }
   }
 
   const ansTag = document.getElementById('telemetry-accuracy');
-  if (AppState.isCurrentAnswerCorrect) {
-    ansTag.textContent = 'CORRECT';
-    ansTag.className = 'metric-value highlight-green';
-  } else {
-    ansTag.textContent = 'ADJUSTING';
-    ansTag.className = 'metric-value highlight-amber';
+  if (ansTag) {
+    if (AppState.isCurrentAnswerCorrect) {
+      ansTag.textContent = 'CORRECT';
+      ansTag.className = 'metric-value highlight-green';
+    } else {
+      ansTag.textContent = 'ADJUSTING';
+      ansTag.className = 'metric-value highlight-amber';
+    }
   }
 }
 
-setInterval(() => {
-  if (AppState.activeComponent) {
-    const latency = performance.now() - AppState.mountTimeMs;
-    document.getElementById('telemetry-latency').textContent = `${(latency / 1000).toFixed(1)} s`;
-  }
-}, 500);
-
-// 7. IndexedDB Write-Ahead Caching & ODE 5-Item Rule Submission
+// 7. IndexedDB Write-Ahead Caching & ODE 5-Item Submission
 function submitCurrentItem() {
   const q = QUESTIONS[AppState.activeQuestionIndex];
   const responseRecord = {
@@ -581,31 +610,34 @@ function submitCurrentItem() {
     friction_events: AppState.frictionEventsCount,
     timestamp: new Date().toLocaleTimeString(),
     synced: !AppState.isSimulatedOffline,
+    metacognitive_feedback: null,
   };
 
   AppState.attemptedItems.set(q.item_index, responseRecord);
   AppState.totalItemsAttempted = AppState.attemptedItems.size;
 
-  // Oregon ODE Attemptedness Evaluation: >= 5 items = Valid Attempt (TstAtmptCd: 'P', TstValidCd: 'Y')
+  // Oregon ODE Attemptedness Evaluation
   if (AppState.totalItemsAttempted >= 15) {
-    AppState.tstAtmptCd = 'C'; // Complete
+    AppState.tstAtmptCd = 'C';
     AppState.tstValidCd = 'Y';
     AppState.odeValidityCleared = true;
   } else if (AppState.totalItemsAttempted >= 5) {
-    AppState.tstAtmptCd = 'P'; // Partial Attempt
-    AppState.tstValidCd = 'Y'; // Valid
+    AppState.tstAtmptCd = 'P';
+    AppState.tstValidCd = 'Y';
     AppState.odeValidityCleared = true;
   } else {
-    AppState.tstAtmptCd = 'I'; // In-Progress
-    AppState.tstValidCd = 'N'; // Invalid (< 5 items)
+    AppState.tstAtmptCd = 'I';
+    AppState.tstValidCd = 'N';
     AppState.odeValidityCleared = false;
   }
 
   renderODEState();
   renderQueueList();
 
-  // Advance to next question if available
-  if (AppState.activeQuestionIndex < QUESTIONS.length - 1) {
+  // If completing Item 5 in beta, or advancing:
+  if (AppState.activeQuestionIndex === QUESTIONS.length - 1) {
+    renderCelebrationView();
+  } else {
     mountQuestion(AppState.activeQuestionIndex + 1);
   }
 }
@@ -615,23 +647,34 @@ function renderODEState() {
   const codeBadge = document.getElementById('ode-codes-badge');
   const progressCount = document.getElementById('ode-attempted-count');
 
-  progressCount.textContent = `${AppState.totalItemsAttempted} / 15`;
+  if (progressCount) progressCount.textContent = `${AppState.totalItemsAttempted} / 15`;
 
-  if (AppState.odeValidityCleared) {
-    chip.className = 'status-chip is-valid';
-    chip.innerHTML = '<span class="pulse-dot"></span> ODE Valid Attempt Cleared';
-    codeBadge.textContent = `TstAtmptCd: '${AppState.tstAtmptCd}' • TstValidCd: '${AppState.tstValidCd}'`;
-    codeBadge.className = 'metric-value highlight-green';
+  if (AppState.isDevMode) {
+    if (AppState.odeValidityCleared) {
+      chip.className = 'status-chip is-valid';
+      chip.innerHTML = '<span class="pulse-dot"></span> ODE Valid Attempt Cleared';
+      if (codeBadge) {
+        codeBadge.textContent = `TstAtmptCd: '${AppState.tstAtmptCd}' • TstValidCd: '${AppState.tstValidCd}'`;
+        codeBadge.className = 'metric-value highlight-green';
+      }
+    } else {
+      chip.className = 'status-chip is-pending';
+      chip.innerHTML = '<span class="pulse-dot"></span> ODE Invalidation Risk (< 5 items)';
+      if (codeBadge) {
+        codeBadge.textContent = `TstAtmptCd: '${AppState.tstAtmptCd}' • TstValidCd: '${AppState.tstValidCd}'`;
+        codeBadge.className = 'metric-value highlight-amber';
+      }
+    }
   } else {
-    chip.className = 'status-chip is-pending';
-    chip.innerHTML = '<span class="pulse-dot"></span> ODE Invalidation Risk (< 5 items)';
-    codeBadge.textContent = `TstAtmptCd: '${AppState.tstAtmptCd}' • TstValidCd: '${AppState.tstValidCd}'`;
-    codeBadge.className = 'metric-value highlight-amber';
+    // In student mode, keep a subtle calm indicator
+    chip.className = 'status-chip';
+    chip.innerHTML = `<span class="pulse-dot" style="background:#10B981;"></span> Saved`;
   }
 }
 
 function renderQueueList() {
   const list = document.getElementById('offline-queue-list');
+  if (!list) return;
   list.innerHTML = '';
 
   AppState.attemptedItems.forEach((item) => {
@@ -651,6 +694,155 @@ function renderQueueList() {
   });
 }
 
+// 8. Post-Assessment Celebration & Metacognitive Reflection
+function renderCelebrationView() {
+  AppState.isCelebrationView = true;
+  const viewport = document.getElementById('canvas-viewport');
+  if (AppState.activeComponent) AppState.activeComponent.destroy();
+
+  // Find missed items or items with high friction
+  const missed = [];
+  AppState.attemptedItems.forEach((item) => {
+    if (!item.is_correct || item.friction_events > 3) {
+      missed.push(item);
+    }
+  });
+
+  const focusItem = missed.length > 0 ? missed[0] : AppState.attemptedItems.get(1);
+  const qObj = QUESTIONS.find((q) => q.item_index === focusItem.item_index) || QUESTIONS[0];
+
+  viewport.innerHTML = `
+    <div class="celebration-view">
+      <div class="celebration-icon">
+        <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+      </div>
+
+      <h2 class="celebration-title">Fantastic Job! Assessment Finished!</h2>
+      <p class="celebration-subtitle">
+        Your answers have been securely recorded. All 5 items cleared the Oregon ODE validity baseline.
+      </p>
+
+      <!-- Metacognitive Reflection Module (Beta Goldmine) -->
+      <div class="reflection-panel">
+        <div class="reflection-title">
+          <span>🧠</span>
+          <span>Let's Reflect: Item ${qObj.item_index} ("${qObj.prompt_text}")</span>
+        </div>
+        <p style="font-size: 0.9rem; color: #CBD5E1;">
+          What made this problem tricky for you? (Tapping this helps us build a friendlier tool!)
+        </p>
+
+        <div class="misconception-chips" id="reflection-chips">
+          <button type="button" class="chip-btn" data-reason="motor_slip_or_touch_error">
+            🖐️ My finger slipped while dragging
+          </button>
+          <button type="button" class="chip-btn" data-reason="conceptual_fractions_different_denominators">
+            ⚖️ The bottom fraction numbers were confusing
+          </button>
+          <button type="button" class="chip-btn" data-reason="misread_or_unclear_prompt">
+            📖 I wasn't sure what the question asked
+          </button>
+          <button type="button" class="chip-btn" data-reason="wild_guess">
+            🎲 I made a lucky/unlucky guess
+          </button>
+        </div>
+
+        <!-- Isomorphic Retry Section -->
+        <div id="isomorphic-retry-section" class="retry-container" style="display: none;">
+          <h4 style="color: #38BDF8; font-size: 1rem; font-weight: 700;">
+            ✨ Second Chance: Try this similar question!
+          </h4>
+          <p id="retry-prompt-text" style="font-size: 0.95rem; color: #FFFFFF; font-weight: 600;"></p>
+          <div id="retry-canvas-mount" style="min-height: 320px; position: relative;"></div>
+          <button id="btn-submit-retry" type="button" class="btn btn-primary" style="align-self: flex-start; margin-top: 8px;">
+            Submit Retry Answer
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Attach chip events
+  const chips = viewport.querySelectorAll('.chip-btn');
+  chips.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      chips.forEach((c) => c.classList.remove('is-selected'));
+      btn.classList.add('is-selected');
+      const reason = btn.getAttribute('data-reason');
+      AppState.selectedMetacognitiveReason = reason;
+
+      // Update response record in offline cache with reflection tag
+      const rec = AppState.attemptedItems.get(qObj.item_index);
+      if (rec) {
+        rec.metacognitive_feedback = reason;
+      }
+
+      // Show Isomorphic Retry
+      mountIsomorphicRetry(qObj);
+    });
+  });
+}
+
+function mountIsomorphicRetry(q) {
+  const retrySection = document.getElementById('isomorphic-retry-section');
+  const mount = document.getElementById('retry-canvas-mount');
+  const promptText = document.getElementById('retry-prompt-text');
+
+  if (!retrySection || !mount) return;
+  retrySection.style.display = 'flex';
+
+  const variant = q.isomorphic_variant || {
+    prompt_text: "Pour water until the cylinder is 4/5 full (800 mL).",
+    target_ratio: 0.80,
+    max_capacity_ml: 1000,
+    target_fraction: { numerator: 4, denominator: 5 }
+  };
+
+  promptText.textContent = variant.prompt_text;
+  mount.innerHTML = '';
+
+  if (q.mechanic_type === 'graduated_cylinder_pour') {
+    AppState.retryComponent = new CylinderComponent(mount, {
+      ...q,
+      target_ratio: variant.target_ratio,
+      target_fraction: variant.target_fraction,
+    });
+  } else {
+    AppState.retryComponent = new GridComponent(mount, {
+      ...q,
+      target_count: variant.target_count || 9,
+    });
+  }
+
+  document.getElementById('btn-submit-retry').addEventListener('click', () => {
+    retrySection.innerHTML = `
+      <div style="padding: 16px; background: rgba(16, 185, 129, 0.2); border-radius: 8px; color: #10B981; font-weight: 700;">
+        🎉 Awesome effort! Your retry answer and reflection have been recorded for your teacher!
+      </div>
+    `;
+  });
+}
+
+// 9. Mode Toggling (Student View vs Researcher HUD)
+function toggleMode() {
+  AppState.isDevMode = !AppState.isDevMode;
+  document.body.classList.toggle('student-mode', !AppState.isDevMode);
+
+  const btn = document.getElementById('btn-toggle-mode');
+  const label = document.getElementById('mode-label');
+
+  if (AppState.isDevMode) {
+    btn.classList.add('is-dev');
+    label.textContent = 'Researcher HUD (Dev)';
+  } else {
+    btn.classList.remove('is-dev');
+    label.textContent = 'Student View';
+  }
+  renderODEState();
+}
+
 function toggleWifiSimulation() {
   AppState.isSimulatedOffline = !AppState.isSimulatedOffline;
   const btn = document.getElementById('btn-toggle-wifi');
@@ -658,12 +850,10 @@ function toggleWifiSimulation() {
 
   if (AppState.isSimulatedOffline) {
     btn.textContent = 'Restore Wi-Fi Connection';
-    btn.className = 'btn btn-secondary';
     netStatus.textContent = 'Home Wi-Fi Disconnected (Offline Queue)';
     netStatus.style.color = '#F59E0B';
   } else {
     btn.textContent = 'Simulate Home Wi-Fi Blip';
-    btn.className = 'btn btn-secondary';
     netStatus.textContent = 'Online (Supabase Connected)';
     netStatus.style.color = '#10B981';
     triggerAutoSync();
@@ -677,23 +867,29 @@ function triggerAutoSync() {
   renderQueueList();
 }
 
-// 8. Bootstrap Sandbox on DOM Ready
+// 10. Bootstrap Sandbox on DOM Ready
 document.addEventListener('DOMContentLoaded', () => {
+  // Start in Student Mode by default (Zero Pressure)
+  document.body.classList.add('student-mode');
+
   // Build Tabs
   const tabsContainer = document.getElementById('item-tabs');
   QUESTIONS.forEach((q, idx) => {
     const btn = document.createElement('button');
     btn.className = `item-tab ${idx === 0 ? 'is-active' : ''}`;
     btn.textContent = `Item ${q.item_index} (${q.modality.slice(0, 4)})`;
-    btn.addEventListener('click', () => mountQuestion(idx));
+    btn.addEventListener('click', () => {
+      if (!AppState.isCelebrationView) mountQuestion(idx);
+    });
     tabsContainer.appendChild(btn);
   });
 
   // Action Buttons
   document.getElementById('btn-submit-answer').addEventListener('click', submitCurrentItem);
   document.getElementById('btn-reset-manipulative').addEventListener('click', () => {
-    mountQuestion(AppState.activeQuestionIndex);
+    if (!AppState.isCelebrationView) mountQuestion(AppState.activeQuestionIndex);
   });
+  document.getElementById('btn-toggle-mode').addEventListener('click', toggleMode);
   document.getElementById('btn-toggle-wifi').addEventListener('click', toggleWifiSimulation);
   document.getElementById('btn-sync-now').addEventListener('click', triggerAutoSync);
 
