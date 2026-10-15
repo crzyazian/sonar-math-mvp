@@ -24,6 +24,11 @@
     </div>
 
     <div class="header-status">
+      <button id="btn-device-check" type="button" class="mode-toggle-btn" title="Test Touch & Sound">
+        <span>🎮</span>
+        <span>Device Check</span>
+      </button>
+
       <button id="btn-toggle-mode" type="button" class="mode-toggle-btn" title="Toggle Developer HUD">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="3"></circle>
@@ -51,7 +56,12 @@
       </nav>
 
       <div class="prompt-section">
-        <span id="prompt-badge" class="prompt-badge">Phase 1 • CONTINUOUS</span>
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+          <span id="prompt-badge" class="prompt-badge">Phase 1 • CONTINUOUS</span>
+          <button id="btn-read-aloud" type="button" class="audio-read-btn" title="Listen to question">
+            🔊 Listen
+          </button>
+        </div>
         <h2 id="prompt-title" class="prompt-title">Pour water into the graduated cylinder until it is exactly 3/4 full.</h2>
         <p id="prompt-subtitle" class="prompt-subtitle">Drag to fill the cylinder. The liquid will snap when you release within 2%.</p>
       </div>
@@ -167,6 +177,28 @@
 
     </aside>
   </main>
+
+  <!-- Pre-Test Calibration Overlay -->
+  <div id="calibration-overlay" class="calibration-overlay" style="display: none;">
+    <div class="calibration-card">
+      <div style="font-size: 2rem;">🎯</div>
+      <h3 class="calibration-title">Screen & Sound Check</h3>
+      <p class="calibration-subtitle">Tap the 3 numbered bubbles to make sure your touch screen and reaction time are calibrated!</p>
+      
+      <div id="calibration-bubble-stage" class="calibration-bubble-stage">
+        <!-- Bubbles generated dynamically -->
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+        <button id="btn-test-sound" type="button" class="btn btn-secondary" style="font-size: 0.85rem; padding: 8px 16px;">
+          🔊 Test Audio Voice
+        </button>
+        <button id="btn-close-calibration" type="button" class="btn btn-primary" style="font-size: 0.85rem; padding: 8px 16px;">
+          Start Assessment →
+        </button>
+      </div>
+    </div>
+  </div>
 
   <script src="app.js"></script>
 </body>

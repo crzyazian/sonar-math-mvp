@@ -691,3 +691,196 @@ body.student-mode .header-status .status-chip {
   gap: 12px;
 }
 
+/* ============================================================================
+   AUDIO READ-ALOUD PROMPT (WEB SPEECH API)
+   ============================================================================ */
+
+.audio-read-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: var(--accent-cyan);
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 38px;
+  align-self: flex-start;
+}
+
+.audio-read-btn:hover {
+  background: rgba(59, 130, 246, 0.22);
+  border-color: var(--accent-blue);
+  transform: translateY(-1px);
+}
+
+.audio-read-btn.is-speaking {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: #10B981;
+  color: #10B981;
+  animation: pulse 1.5s infinite;
+}
+
+/* ============================================================================
+   PRE-TEST TOUCH & AUDIO CALIBRATION
+   ============================================================================ */
+
+.calibration-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 15, 25, 0.92);
+  backdrop-filter: blur(16px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.calibration-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 32px;
+  max-width: 540px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
+  text-align: center;
+}
+
+.calibration-title {
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text-main);
+}
+
+.calibration-subtitle {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+}
+
+.calibration-bubble-stage {
+  min-height: 180px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 2px dashed rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-md);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.calibration-bubble {
+  position: absolute;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+  color: #FFFFFF;
+  font-family: var(--font-mono);
+  font-size: 1.1rem;
+  font-weight: 800;
+  border: 2px solid #FFFFFF;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 20px var(--glow-blue);
+  transition: transform 0.15s ease;
+  user-select: none;
+}
+
+.calibration-bubble:active {
+  transform: scale(0.9);
+}
+
+/* ============================================================================
+   PARENT & TEACHER LEARNING SUMMARY CARD
+   ============================================================================ */
+
+.summary-card {
+  width: 100%;
+  max-width: 680px;
+  background: rgba(17, 24, 39, 0.9);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 24px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 12px;
+}
+
+.summary-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.summary-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--accent-emerald);
+  border-radius: var(--radius-full);
+}
+
+.domain-score-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+}
+
+.strength-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #93C5FD;
+  font-size: 0.85rem;
+  padding: 4px 8px;
+  background: rgba(59, 130, 246, 0.12);
+  border-radius: var(--radius-sm);
+}
+
+@media print {
+  body {
+    background: #FFFFFF !important;
+    color: #000000 !important;
+  }
+  .app-header, .sidebar, .btn, .item-nav-bar, .reflection-panel {
+    display: none !important;
+  }
+  .stage-card, .summary-card {
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    color: #000000 !important;
+  }
+}
+
+

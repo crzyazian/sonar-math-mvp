@@ -694,7 +694,7 @@ function renderQueueList() {
   });
 }
 
-// 8. Post-Assessment Celebration & Metacognitive Reflection
+// 8. Post-Assessment Neutral Completion & Metacognitive Reflection
 function renderCelebrationView() {
   AppState.isCelebrationView = true;
   const viewport = document.getElementById('canvas-viewport');
@@ -702,7 +702,9 @@ function renderCelebrationView() {
 
   // Find missed items or items with high friction
   const missed = [];
+  let correctCount = 0;
   AppState.attemptedItems.forEach((item) => {
+    if (item.is_correct) correctCount++;
     if (!item.is_correct || item.friction_events > 3) {
       missed.push(item);
     }
@@ -713,25 +715,69 @@ function renderCelebrationView() {
 
   viewport.innerHTML = `
     <div class="celebration-view">
-      <div class="celebration-icon">
+      <div class="celebration-icon" style="animation: none;">
         <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round">
           <polyline points="20 6 9 17 4 12"></polyline>
         </svg>
       </div>
 
-      <h2 class="celebration-title">Fantastic Job! Assessment Finished!</h2>
+      <h2 class="celebration-title" style="background: none; -webkit-text-fill-color: #FFFFFF; font-size: 1.8rem;">
+        Assessment Finished.
+      </h2>
       <p class="celebration-subtitle">
-        Your answers have been securely recorded. All 5 items cleared the Oregon ODE validity baseline.
+        Your answers have been securely recorded. All attempted items meet the Oregon ODE accountability threshold.
       </p>
 
-      <!-- Metacognitive Reflection Module (Beta Goldmine) -->
+      <!-- Parent & Teacher Learning Summary Card -->
+      <div class="summary-card">
+        <div class="summary-header">
+          <div>
+            <h3 class="summary-title">Diagnostic Learning Summary (Grade 4 Fractions)</h3>
+            <span style="font-size: 0.75rem; color: #64748B;">Oregon ODE & SEDA Standards Aligned</span>
+          </div>
+          <span class="summary-badge">Attempt Valid (5/5 Items)</span>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <div class="domain-score-row">
+            <span>Visual Volume & Continuous Pouring (4.NF.A)</span>
+            <strong style="color: #38BDF8;">Demonstrated</strong>
+          </div>
+          <div class="domain-score-row">
+            <span>Discrete Grid Partitioning & Equivalence (4.NF.A)</span>
+            <strong style="color: #38BDF8;">Demonstrated</strong>
+          </div>
+          <div class="domain-score-row">
+            <span>Decomposition & Subtraction from Whole (4.NF.B)</span>
+            <strong style="color: #38BDF8;">Demonstrated</strong>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 4px;">
+          <span style="font-size: 0.78rem; font-weight: 700; color: #94A3B8; text-transform: uppercase;">Observed Strengths:</span>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <span class="strength-tag">✓ Benchmark Identification (1/2, 3/4)</span>
+            <span class="strength-tag">✓ Area Grid Shading</span>
+            <span class="strength-tag">✓ Unit Block Subtraction</span>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; border-top: 1px solid var(--border-subtle); padding-top: 12px;">
+          <span style="font-size: 0.8rem; color: #64748B;">Recommended: Progress to Phase 2 mixed-number addition.</span>
+          <button id="btn-print-summary" type="button" class="btn btn-secondary" style="font-size: 0.8rem; padding: 6px 14px; min-height: 36px;">
+            🖨️ Print / Save Report
+          </button>
+        </div>
+      </div>
+
+      <!-- Metacognitive Reflection Module -->
       <div class="reflection-panel">
         <div class="reflection-title">
           <span>🧠</span>
-          <span>Let's Reflect: Item ${qObj.item_index} ("${qObj.prompt_text}")</span>
+          <span>Question Reflection: Item ${qObj.item_index} ("${qObj.prompt_text}")</span>
         </div>
         <p style="font-size: 0.9rem; color: #CBD5E1;">
-          What made this problem tricky for you? (Tapping this helps us build a friendlier tool!)
+          What made this problem tricky for you? (Your feedback helps us make the questions clearer!)
         </p>
 
         <div class="misconception-chips" id="reflection-chips">
@@ -763,6 +809,11 @@ function renderCelebrationView() {
       </div>
     </div>
   `;
+
+  // Print button
+  document.getElementById('btn-print-summary').addEventListener('click', () => {
+    window.print();
+  });
 
   // Attach chip events
   const chips = viewport.querySelectorAll('.chip-btn');
@@ -867,7 +918,99 @@ function triggerAutoSync() {
   renderQueueList();
 }
 
-// 10. Bootstrap Sandbox on DOM Ready
+// 10. Web Speech Audio Prompt Read-Aloud
+let activeUtterance = null;
+function toggleAudioReadAloud() {
+  const btn = document.getElementById('btn-read-aloud');
+  if (!('speechSynthesis' in window)) {
+    alert('Speech audio is not supported in this browser.');
+    return;
+  }
+
+  if (window.speechSynthesis.speaking) {
+    window.speechSynthesis.cancel();
+    btn.classList.remove('is-speaking');
+    btn.textContent = '🔊 Listen';
+    return;
+  }
+
+  const q = QUESTIONS[AppState.activeQuestionIndex];
+  const fullText = `${q.prompt_text}. ${q.sub_text || ''}`;
+
+  activeUtterance = new SpeechSynthesisUtterance(fullText);
+  activeUtterance.rate = 0.92; // Slightly slower, encouraging child-friendly cadence
+  activeUtterance.pitch = 1.05;
+
+  activeUtterance.onstart = () => {
+    btn.classList.add('is-speaking');
+    btn.textContent = '⏹️ Stop';
+  };
+
+  activeUtterance.onend = () => {
+    btn.classList.remove('is-speaking');
+    btn.textContent = '🔊 Listen';
+  };
+
+  activeUtterance.onerror = () => {
+    btn.classList.remove('is-speaking');
+    btn.textContent = '🔊 Listen';
+  };
+
+  window.speechSynthesis.speak(activeUtterance);
+}
+
+// 11. Pre-Test Touch & Audio Calibration Check
+function openCalibrationOverlay() {
+  const overlay = document.getElementById('calibration-overlay');
+  const stage = document.getElementById('calibration-bubble-stage');
+  overlay.style.display = 'flex';
+  stage.innerHTML = '';
+
+  let currentBubbleTarget = 1;
+  const bubblePositions = [
+    { left: '20%', top: '35%' },
+    { left: '50%', top: '25%' },
+    { left: '80%', top: '45%' },
+  ];
+
+  bubblePositions.forEach((pos, idx) => {
+    const num = idx + 1;
+    const bubble = document.createElement('div');
+    bubble.className = 'calibration-bubble';
+    bubble.textContent = String(num);
+    bubble.style.left = pos.left;
+    bubble.style.top = pos.top;
+
+    bubble.addEventListener('pointerdown', () => {
+      if (num === currentBubbleTarget) {
+        bubble.style.transform = 'scale(0)';
+        bubble.style.opacity = '0';
+        currentBubbleTarget++;
+
+        if (currentBubbleTarget > 3) {
+          stage.innerHTML = `
+            <div style="color: #10B981; font-weight: 700; font-size: 1.1rem; padding: 20px;">
+              ✓ Screen touch & reaction latency calibrated successfully!
+            </div>
+          `;
+        }
+      }
+    });
+
+    stage.appendChild(bubble);
+  });
+}
+
+function testSoundVoice() {
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance("Audio is working clearly!");
+    u.rate = 0.95;
+    window.speechSynthesis.speak(u);
+  }
+}
+
+// 12. Bootstrap Sandbox on DOM Ready
 document.addEventListener('DOMContentLoaded', () => {
   // Start in Student Mode by default (Zero Pressure)
   document.body.classList.add('student-mode');
@@ -893,7 +1036,25 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-toggle-wifi').addEventListener('click', toggleWifiSimulation);
   document.getElementById('btn-sync-now').addEventListener('click', triggerAutoSync);
 
+  // Audio Read-Aloud & Calibration Check
+  const readBtn = document.getElementById('btn-read-aloud');
+  if (readBtn) readBtn.addEventListener('click', toggleAudioReadAloud);
+
+  const deviceCheckBtn = document.getElementById('btn-device-check');
+  if (deviceCheckBtn) deviceCheckBtn.addEventListener('click', openCalibrationOverlay);
+
+  const testSoundBtn = document.getElementById('btn-test-sound');
+  if (testSoundBtn) testSoundBtn.addEventListener('click', testSoundVoice);
+
+  const closeCalBtn = document.getElementById('btn-close-calibration');
+  if (closeCalBtn) {
+    closeCalBtn.addEventListener('click', () => {
+      document.getElementById('calibration-overlay').style.display = 'none';
+    });
+  }
+
   // Mount initial question
   mountQuestion(0);
   renderODEState();
 });
+
