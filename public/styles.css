@@ -872,7 +872,7 @@ body.student-mode .header-status .status-chip {
     background: #FFFFFF !important;
     color: #000000 !important;
   }
-  .app-header, .sidebar, .btn, .item-nav-bar, .reflection-panel {
+  .app-header, .sidebar, .btn, .item-nav-bar, .reflection-panel, .step-progress-bar {
     display: none !important;
   }
   .stage-card, .summary-card {
@@ -882,5 +882,491 @@ body.student-mode .header-status .status-chip {
     color: #000000 !important;
   }
 }
+
+/* ============================================================================
+   14. ONBOARDING & FINITE STATE MACHINE (SCREENS 1-4, 5-19, 20)
+   ============================================================================ */
+
+.fsm-screen {
+  display: none;
+  animation: fadeInScreen 0.3s ease-out;
+}
+.fsm-screen.is-active {
+  display: block;
+}
+
+@keyframes fadeInScreen {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Student Mode Defaults */
+body.student-mode .sidebar {
+  display: none !important;
+}
+body.student-mode .header-researcher-tools {
+  display: none !important;
+}
+body.student-mode .main-container {
+  display: flex;
+  justify-content: center;
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 24px 20px;
+}
+body.student-mode .stage-card {
+  width: 100%;
+}
+
+/* Progress Header Bar */
+.step-progress-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+.step-counter-text {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #94A3B8;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.step-progress-track {
+  width: 160px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+.step-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #38BDF8, #818CF8);
+  border-radius: var(--radius-full);
+  transition: width 0.3s ease;
+}
+
+/* Onboarding Card Containers */
+.onboarding-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 36px 32px;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
+}
+
+.onboarding-title-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #38BDF8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: rgba(56, 189, 248, 0.12);
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  margin-bottom: 12px;
+}
+
+.onboarding-title {
+  font-size: 1.85rem;
+  font-weight: 800;
+  color: #FFFFFF;
+  line-height: 1.25;
+  margin-bottom: 8px;
+}
+
+.onboarding-desc {
+  font-size: 1rem;
+  color: #94A3B8;
+  margin-bottom: 28px;
+}
+
+/* Option Grid & Selection Cards */
+.selection-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.selection-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.selection-card {
+  background: rgba(15, 23, 42, 0.6);
+  border: 2px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  user-select: none;
+}
+.selection-card:hover {
+  background: rgba(30, 41, 59, 0.8);
+  border-color: rgba(56, 189, 248, 0.4);
+  transform: translateY(-2px);
+}
+.selection-card.is-selected {
+  background: rgba(30, 58, 138, 0.3);
+  border-color: #38BDF8;
+  box-shadow: 0 0 20px rgba(56, 189, 248, 0.25);
+}
+
+.card-icon {
+  font-size: 2.2rem;
+  line-height: 1;
+}
+.card-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #FFFFFF;
+}
+.card-subtitle {
+  font-size: 0.88rem;
+  color: #94A3B8;
+  line-height: 1.4;
+}
+
+/* Pre-Test Device Calibration Check */
+.calibration-stage-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.calibration-targets-box {
+  min-height: 240px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 2px dashed rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-md);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 20px;
+}
+
+.calibration-target-bubble {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3B82F6, #06B6D4);
+  color: #FFFFFF;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  user-select: none;
+  touch-action: none;
+}
+.calibration-target-bubble:hover {
+  transform: scale(1.08);
+}
+.calibration-target-bubble.is-checked {
+  background: linear-gradient(135deg, #10B981, #059669);
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
+  transform: scale(0.95);
+  cursor: default;
+}
+
+.calibration-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 16px 20px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+}
+.checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+  color: #CBD5E1;
+}
+.checklist-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.1);
+  color: #64748B;
+}
+.checklist-item.is-done .checklist-icon {
+  background: #10B981;
+  color: #FFFFFF;
+}
+
+/* ============================================================================
+   15. MANIPULATIVE COMPONENTS
+   ============================================================================ */
+
+/* 1. Continuous Number Line Slider Component */
+.number-line-container {
+  width: 100%;
+  padding: 40px 24px 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  user-select: none;
+}
+.number-line-track-wrapper {
+  width: 100%;
+  max-width: 680px;
+  position: relative;
+  height: 80px;
+}
+.number-line-axis {
+  position: absolute;
+  top: 36px;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: linear-gradient(90deg, #3B82F6, #06B6D4);
+  border-radius: 4px;
+}
+.number-line-ticks-container {
+  position: absolute;
+  top: 20px;
+  left: 0;
+  right: 0;
+  height: 38px;
+}
+.nl-tick {
+  position: absolute;
+  top: 0;
+  width: 2px;
+  background: rgba(255, 255, 255, 0.4);
+  transform: translateX(-50%);
+}
+.nl-tick.major {
+  height: 28px;
+  width: 3px;
+  background: #FFFFFF;
+}
+.nl-tick.minor {
+  height: 18px;
+  top: 10px;
+  background: rgba(255, 255, 255, 0.25);
+}
+.nl-label {
+  position: absolute;
+  top: 48px;
+  transform: translateX(-50%);
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #CBD5E1;
+  font-family: var(--font-mono);
+}
+.nl-slider-thumb {
+  position: absolute;
+  top: 18px;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  border: 4px solid #3B82F6;
+  box-shadow: 0 0 16px rgba(59, 130, 246, 0.6);
+  cursor: grab;
+  transform: translateX(-50%);
+  touch-action: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  transition: transform 0.05s ease;
+}
+.nl-slider-thumb:active {
+  cursor: grabbing;
+  transform: translateX(-50%) scale(1.15);
+}
+.nl-callout {
+  position: absolute;
+  top: -36px;
+  transform: translateX(-50%);
+  background: #1E293B;
+  border: 1px solid #38BDF8;
+  color: #38BDF8;
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+/* 2. Multiple Choice Component */
+.mc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  width: 100%;
+  max-width: 680px;
+  margin: 20px auto;
+}
+.mc-card {
+  background: rgba(15, 23, 42, 0.7);
+  border: 2px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 20px 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+.mc-card:hover {
+  background: rgba(30, 41, 59, 0.85);
+  border-color: rgba(56, 189, 248, 0.4);
+  transform: translateY(-2px);
+}
+.mc-card.is-selected {
+  background: rgba(30, 58, 138, 0.4);
+  border-color: #38BDF8;
+  box-shadow: 0 0 20px rgba(56, 189, 248, 0.3);
+}
+.mc-letter-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 1rem;
+  color: #94A3B8;
+  flex-shrink: 0;
+}
+.mc-card.is-selected .mc-letter-badge {
+  background: #38BDF8;
+  color: #0F172A;
+}
+.mc-text-content {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #FFFFFF;
+  font-family: var(--font-mono);
+}
+
+/* 3. Numeric Fraction Input Component */
+.fraction-input-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 30px;
+}
+.fraction-box {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.fraction-input {
+  width: 76px;
+  height: 58px;
+  border-radius: var(--radius-sm);
+  background: rgba(15, 23, 42, 0.9);
+  border: 2px solid var(--border-subtle);
+  color: #FFFFFF;
+  font-family: var(--font-mono);
+  font-size: 1.75rem;
+  font-weight: 700;
+  text-align: center;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+.fraction-input:focus {
+  border-color: #38BDF8;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.3);
+}
+.fraction-line {
+  width: 84px;
+  height: 4px;
+  background: #94A3B8;
+  border-radius: 2px;
+}
+.whole-input {
+  width: 76px;
+  height: 76px;
+  border-radius: var(--radius-sm);
+  background: rgba(15, 23, 42, 0.9);
+  border: 2px solid var(--border-subtle);
+  color: #FFFFFF;
+  font-family: var(--font-mono);
+  font-size: 2rem;
+  font-weight: 800;
+  text-align: center;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+.whole-input:focus {
+  border-color: #38BDF8;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.3);
+}
+
+/* ============================================================================
+   16. METACOGNITIVE DELTA CALCULATION SCREEN (SCREEN 20)
+   ============================================================================ */
+
+.delta-dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  margin: 20px 0;
+}
+.delta-card {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.delta-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.delta-value {
+  font-size: 2rem;
+  font-weight: 800;
+  font-family: var(--font-mono);
+}
+.delta-badge-gain {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #10B981;
+  background: rgba(16, 185, 129, 0.15);
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+}
+
 
 

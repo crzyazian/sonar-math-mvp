@@ -48,7 +48,7 @@
       "modality": "discrete",
       "mechanic_type": "unit_block_grid",
       "prompt_text": "Shade the unit blocks to represent 2/3 of the 12-block rectangle.",
-      "sub_text": "Click or tap blocks to shade them. You need 8 out of 12 blocks shaded.",
+      "sub_text": "Click or tap blocks to shade your representation.",
       "correct_answer": {
         "display_string": "8/12 (equivalent to 2/3)",
         "normalized_value": 0.6667,
@@ -250,7 +250,7 @@
       "modality": "discrete",
       "mechanic_type": "unit_block_grid",
       "prompt_text": "Model the subtraction: 7/8 - 3/8 on the 8-block bar.",
-      "sub_text": "Click or tap shaded blocks to cross out 3/8, leaving the difference shaded.",
+      "sub_text": "Click or tap shaded blocks to cross them out, leaving the difference active.",
       "correct_answer": {
         "display_string": "4/8 (or 1/2)",
         "normalized_value": 0.5,

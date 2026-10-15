@@ -7,14 +7,14 @@
   <title>Sonar Math: K-8 Diagnostic Sandbox (Oregon ODE & SEDA Compliant)</title>
   <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body class="student-mode">
 
   <!-- Beta Access Gatekeeper Overlay (Password Protection) -->
   <div id="beta-gatekeeper-overlay" class="calibration-overlay" style="display: none;">
     <div class="calibration-card" style="max-width: 420px;">
       <div style="font-size: 2.5rem;">🔒</div>
-      <h3 class="calibration-title">Sonar Math Beta</h3>
-      <p class="calibration-subtitle">This is a private beta diagnostic. Please enter your beta access passcode to continue.</p>
+      <h3 class="calibration-title">Sonar Math Diagnostic</h3>
+      <p class="calibration-subtitle">Please enter your diagnostic passcode to unlock the assessment.</p>
       
       <form id="form-beta-gate" style="display: flex; flex-direction: column; gap: 12px; margin-top: 8px;">
         <input 
@@ -28,7 +28,7 @@
           Incorrect passcode. Please try again.
         </div>
         <button type="submit" class="btn btn-primary" style="justify-content: center; width: 100%;">
-          Enter Diagnostic →
+          Start Assessment →
         </button>
       </form>
       <div style="font-size: 0.72rem; color: #64748B;">
@@ -40,7 +40,7 @@
   <!-- App Header -->
   <header class="app-header">
     <div class="brand-container">
-      <div class="brand-logo">
+      <div class="brand-logo" id="brand-logo-trigger" title="Sonar Math Platform" style="cursor: pointer;">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="10"></circle>
           <path d="M12 2a7 7 0 0 1 7 7c0 5-7 13-7 13S5 14 5 9a7 7 0 0 1 7-7z"></path>
@@ -48,27 +48,38 @@
       </div>
       <div>
         <h1 class="brand-title">Sonar Math</h1>
-        <span class="brand-badge">Grade 4 Fractions Diagnostic MVP</span>
+        <span class="brand-badge" id="header-assessment-badge">Grade 4 Fractions Diagnostic</span>
       </div>
     </div>
 
-    <div class="header-status">
-      <button id="btn-device-check" type="button" class="mode-toggle-btn" title="Test Touch & Sound">
-        <span>🎮</span>
-        <span>Device Check</span>
+    <!-- Step Progress Tracker (Clean & Encouraging for Students) -->
+    <div class="step-progress-wrapper" id="step-progress-wrapper">
+      <div class="step-counter-text" id="step-counter-text">Screen 1 of 20: Grade Router</div>
+      <div class="step-progress-track">
+        <div class="step-progress-fill" id="step-progress-fill" style="width: 5%;"></div>
+      </div>
+    </div>
+
+    <!-- Audio Read-Aloud (Appears during questions) -->
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <button id="btn-read-aloud" type="button" class="audio-read-btn" style="display: none;" title="Listen to question">
+        🔊 Listen
       </button>
 
-      <button id="btn-toggle-mode" type="button" class="mode-toggle-btn" title="Toggle Developer HUD">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="3"></circle>
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-        </svg>
-        <span id="mode-label">Student View</span>
-      </button>
+      <!-- Researcher HUD Tools (Visible only when Dev Mode is activated) -->
+      <div class="header-researcher-tools" id="header-researcher-tools">
+        <button id="btn-toggle-mode" type="button" class="mode-toggle-btn" title="Toggle Developer HUD">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+          <span id="mode-label">Researcher HUD</span>
+        </button>
 
-      <div id="ode-status-chip" class="status-chip is-pending">
-        <span class="pulse-dot"></span>
-        <span id="ode-status-text">ODE Invalidation Risk (< 5 items)</span>
+        <div id="ode-status-chip" class="status-chip is-pending">
+          <span class="pulse-dot"></span>
+          <span id="ode-status-text">ODE State Monitor</span>
+        </div>
       </div>
     </div>
   </header>
@@ -76,28 +87,207 @@
   <!-- Main Container -->
   <main class="main-container">
     
-    <!-- Left: Question & Interactive Canvas Stage -->
-    <section class="stage-card">
-      <nav class="item-nav-bar" aria-label="Question Navigation">
+    <!-- ======================================================================
+         SCREEN 1: GRADE ROUTER
+         ====================================================================== -->
+    <section id="screen-1-grade" class="stage-card fsm-screen is-active">
+      <div class="onboarding-card">
+        <span class="onboarding-title-badge">Screen 1 of 20 • Diagnostic Setup</span>
+        <h2 class="onboarding-title">Welcome to Sonar Math!</h2>
+        <p class="onboarding-desc">Select your grade level to launch your personalized diagnostic assessment.</p>
+
+        <div class="selection-grid-3">
+          <div class="selection-card" data-grade="3">
+            <span class="card-icon">🌱</span>
+            <h3 class="card-title">Grade 3</h3>
+            <p class="card-subtitle">Equal sharing, unit fractions, and basic visual partition foundations.</p>
+          </div>
+
+          <div class="selection-card is-selected" data-grade="4">
+            <span class="card-icon">⚡</span>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <h3 class="card-title">Grade 4</h3>
+              <span class="badge" style="background:#38BDF8; color:#0F172A; font-weight:800; font-size:0.7rem; padding:2px 8px; border-radius:10px;">ACTIVE PILOT</span>
+            </div>
+            <p class="card-subtitle">Equivalence, continuous volume transfer, decomposition & operations (CCSS 4.NF).</p>
+          </div>
+
+          <div class="selection-card" data-grade="5">
+            <span class="card-icon">🚀</span>
+            <h3 class="card-title">Grade 5</h3>
+            <p class="card-subtitle">Unlike denominators, fractional scaling, and division of fractions.</p>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end;">
+          <button id="btn-next-screen-1" type="button" class="btn btn-primary">
+            Next: Modality Setup →
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================================
+         SCREEN 2: MODALITY SELF-PERCEPTION SELECTION
+         ====================================================================== -->
+    <section id="screen-2-modality" class="stage-card fsm-screen">
+      <div class="onboarding-card">
+        <span class="onboarding-title-badge">Screen 2 of 20 • Metacognitive Calibration</span>
+        <h2 class="onboarding-title">How do you like to explore math ideas best?</h2>
+        <p class="onboarding-desc">Choose the learning style that feels most natural to you. We'll use this to calculate your Metacognitive Delta at the end!</p>
+
+        <div class="selection-grid-3">
+          <div class="selection-card is-selected" data-modality="discrete">
+            <span class="card-icon">🟦</span>
+            <h3 class="card-title">Visual & Area Grids</h3>
+            <p class="card-subtitle">"I understand math best when I see shapes, shaded blocks, and partitioned rectangles."</p>
+          </div>
+
+          <div class="selection-card" data-modality="continuous">
+            <span class="card-icon">🧪</span>
+            <h3 class="card-title">Fluids & Sliders</h3>
+            <p class="card-subtitle">"I understand math best when pouring liquid volume, sliding along lines, and measuring."</p>
+          </div>
+
+          <div class="selection-card" data-modality="abstract">
+            <span class="card-icon">🔢</span>
+            <h3 class="card-title">Numbers & Equations</h3>
+            <p class="card-subtitle">"I understand math best using symbolic fraction numbers, equations, and mental math."</p>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <button id="btn-back-screen-2" type="button" class="btn btn-secondary">
+            ← Back
+          </button>
+          <button id="btn-next-screen-2" type="button" class="btn btn-primary">
+            Next: Choose Your Theme →
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================================
+         SCREEN 3: BEHAVIORAL INTEREST PROMPT
+         ====================================================================== -->
+    <section id="screen-3-theme" class="stage-card fsm-screen">
+      <div class="onboarding-card">
+        <span class="onboarding-title-badge">Screen 3 of 20 • Laboratory Theme</span>
+        <h2 class="onboarding-title">Choose your diagnostic lab theme!</h2>
+        <p class="onboarding-desc">Pick an environment for your problem scenarios and interactive visual cues.</p>
+
+        <div class="selection-grid-4">
+          <div class="selection-card is-selected" data-theme="space">
+            <span class="card-icon">🚀</span>
+            <h3 class="card-title">Space Station</h3>
+            <p class="card-subtitle">Rocket fuel mixtures, satellite solar grids, and orbital trajectories.</p>
+          </div>
+
+          <div class="selection-card" data-theme="ocean">
+            <span class="card-icon">🌊</span>
+            <h3 class="card-title">Marine Lab</h3>
+            <p class="card-subtitle">Submarine ballast chambers, coral research grids, and ocean depth gauges.</p>
+          </div>
+
+          <div class="selection-card" data-theme="culinary">
+            <span class="card-icon">🧁</span>
+            <h3 class="card-title">Master Bakery</h3>
+            <p class="card-subtitle">Ingredient measuring cups, sheet pan grids, and recipe portions.</p>
+          </div>
+
+          <div class="selection-card" data-theme="sports">
+            <span class="card-icon">⚽</span>
+            <h3 class="card-title">Sports Science</h3>
+            <p class="card-subtitle">Hydration stations, stadium seating blocks, and track intervals.</p>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <button id="btn-back-screen-3" type="button" class="btn btn-secondary">
+            ← Back
+          </button>
+          <button id="btn-next-screen-3" type="button" class="btn btn-primary">
+            Next: Device Calibration →
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================================
+         SCREEN 4: SANDBOX WELCOME & PRE-TEST DEVICE CALIBRATION CHECK
+         ====================================================================== -->
+    <section id="screen-4-calibration" class="stage-card fsm-screen">
+      <div class="onboarding-card">
+        <span class="onboarding-title-badge">Screen 4 of 20 • Pre-Test Verification</span>
+        <h2 class="onboarding-title">Screen, Touch & Sound Check</h2>
+        <p class="onboarding-desc">Before starting the math problems, tap each target bubble below to verify that your inputs and buttons are acknowledged!</p>
+
+        <div class="calibration-stage-container">
+          <div class="calibration-targets-box" id="calibration-interactive-box">
+            <div class="calibration-target-bubble" id="cal-target-1" data-target="1">
+              <span>Target</span>
+              <span>1</span>
+            </div>
+            <div class="calibration-target-bubble" id="cal-target-2" data-target="2">
+              <span>Target</span>
+              <span>2</span>
+            </div>
+            <div class="calibration-target-bubble" id="cal-target-3" data-target="3">
+              <span>Target</span>
+              <span>3</span>
+            </div>
+          </div>
+
+          <div class="calibration-checklist">
+            <div class="checklist-item" id="chk-input-ready">
+              <span class="checklist-icon">1</span>
+              <span>Touch / Mouse Input: Tap all 3 target bubbles above to calibrate interaction</span>
+            </div>
+            <div class="checklist-item" id="chk-sound-ready">
+              <span class="checklist-icon">2</span>
+              <span>Sound & Audio Voice: Tap "Test Voice" to confirm audio read-aloud works</span>
+            </div>
+            <div class="checklist-item" id="chk-latency-ready">
+              <span class="checklist-icon">3</span>
+              <span>Input Latency Baseline: Zero-pressure background motor tracking initialized</span>
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+            <button id="btn-cal-test-voice" type="button" class="btn btn-secondary">
+              🔊 Test Voice
+            </button>
+            <button id="btn-start-diagnostic" type="button" class="btn btn-primary" disabled style="opacity: 0.5; cursor: not-allowed;">
+              Begin Diagnostic Assessment (15 Items) →
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================================
+         SCREENS 5-19: THE 15-QUESTION DIAGNOSTIC BATTERY
+         ====================================================================== -->
+    <section id="screen-diagnostic" class="stage-card fsm-screen">
+      <!-- Item Navigation Tabs (Hidden in student mode for calm focus, visible in HUD) -->
+      <nav class="item-nav-bar" id="item-nav-bar" aria-label="Question Navigation" style="display: none;">
         <div id="item-tabs" class="item-tabs">
-          <!-- Populated dynamically via app.js -->
+          <!-- Populated dynamically via questions.data.js -->
         </div>
       </nav>
 
       <div class="prompt-section">
         <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
           <span id="prompt-badge" class="prompt-badge">Phase 1 • CONTINUOUS</span>
-          <button id="btn-read-aloud" type="button" class="audio-read-btn" title="Listen to question">
-            🔊 Listen
-          </button>
+          <span id="question-progress-badge" style="font-size: 0.82rem; font-weight: 700; color: #94A3B8;">Question 1 of 15</span>
         </div>
         <h2 id="prompt-title" class="prompt-title">Pour water into the graduated cylinder until it is exactly 3/4 full.</h2>
-        <p id="prompt-subtitle" class="prompt-subtitle">Drag to fill the cylinder. The liquid will snap when you release within 2%.</p>
+        <p id="prompt-subtitle" class="prompt-subtitle">Drag the water level to fill the cylinder. Release when you are ready.</p>
       </div>
 
-      <!-- Canvas Viewport -->
+      <!-- Canvas Viewport (Dynamically mounts the 5 mechanics) -->
       <div id="canvas-viewport" class="canvas-viewport">
-        <!-- Rendered by GraduatedCylinderCanvas or DiscreteBlockGrid -->
+        <!-- Rendered by CylinderComponent, GridComponent, NumberLineSliderComponent, MultipleChoiceComponent, or NumericFractionInputComponent -->
       </div>
 
       <!-- Stage Footer Actions -->
@@ -107,20 +297,28 @@
             <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
             <path d="M3 3v5h5"></path>
           </svg>
-          Reset Canvas
+          Reset
         </button>
 
         <button id="btn-submit-answer" type="button" class="btn btn-primary">
-          Submit Response & Record Telemetry
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="9 18 15 12 9 6"></polyline>
-          </svg>
+          Submit Response & Continue →
         </button>
       </footer>
     </section>
 
-    <!-- Right: Telemetry & Offline Infrastructure HUD -->
-    <aside class="sidebar">
+    <!-- ======================================================================
+         SCREEN 20: POST-CHECK & METACOGNITIVE DELTA CALCULATION SCREEN
+         ====================================================================== -->
+    <section id="screen-20-postcheck" class="stage-card fsm-screen">
+      <div id="postcheck-mount-point">
+        <!-- Rendered dynamically by renderScreen20Delta() -->
+      </div>
+    </section>
+
+    <!-- ======================================================================
+         RESEARCHER / PROCTOR HUD (HIDDEN IN STUDENT MODE)
+         ====================================================================== -->
+    <aside class="sidebar" id="researcher-sidebar">
       
       <!-- Micro-Telemetry HUD -->
       <div class="hud-panel">
@@ -184,7 +382,7 @@
 
         <div class="sim-controls">
           <div style="font-size: 0.75rem; color: #64748B; font-weight: 700; text-transform: uppercase;">
-            Connection State: <span id="net-status-badge" style="color: #10B981;">Online (Supabase Connected)</span>
+            Connection State: <span id="net-status-badge" style="color: #10B981;">Online (Cloud Ready)</span>
           </div>
           <button id="btn-toggle-wifi" type="button" class="btn btn-secondary" style="font-size: 0.8rem; padding: 8px 12px; min-height: 38px;">
             Simulate Home Wi-Fi Blip
@@ -207,29 +405,8 @@
     </aside>
   </main>
 
-  <!-- Pre-Test Calibration Overlay -->
-  <div id="calibration-overlay" class="calibration-overlay" style="display: none;">
-    <div class="calibration-card">
-      <div style="font-size: 2rem;">🎯</div>
-      <h3 class="calibration-title">Screen & Sound Check</h3>
-      <p class="calibration-subtitle">Tap the 3 numbered bubbles to make sure your touch screen and reaction time are calibrated!</p>
-      
-      <div id="calibration-bubble-stage" class="calibration-bubble-stage">
-        <!-- Bubbles generated dynamically -->
-      </div>
-
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
-        <button id="btn-test-sound" type="button" class="btn btn-secondary" style="font-size: 0.85rem; padding: 8px 16px;">
-          🔊 Test Audio Voice
-        </button>
-        <button id="btn-close-calibration" type="button" class="btn btn-primary" style="font-size: 0.85rem; padding: 8px 16px;">
-          Start Assessment →
-        </button>
-      </div>
-    </div>
-  </div>
-
   <script src="config.js"></script>
+  <script src="questions.data.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
