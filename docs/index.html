@@ -32,7 +32,40 @@
         </button>
       </form>
       <div style="font-size: 0.72rem; color: #64748B;">
-        Default access passcode: <strong style="color: #94A3B8;">sonar2026</strong>
+        Default access passcode: <strong style="color: #94A3B8;">math</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin Access Gatekeeper Modal / Overlay -->
+  <div id="admin-gatekeeper-overlay" class="calibration-overlay" style="display: none;">
+    <div class="calibration-card" style="max-width: 420px;">
+      <div style="font-size: 2.5rem;">🔐</div>
+      <h3 class="calibration-title">Educator & Admin Portal</h3>
+      <p class="calibration-subtitle">Enter administrator credentials to unlock the assessment results and student records.</p>
+      
+      <form id="form-admin-gate" style="display: flex; flex-direction: column; gap: 12px; margin-top: 8px;">
+        <input 
+          id="input-admin-passcode" 
+          type="password" 
+          placeholder="Enter Admin Password..." 
+          autocomplete="off"
+          style="padding: 12px 16px; border-radius: var(--radius-sm); background: rgba(15, 23, 42, 0.9); border: 1.5px solid var(--border-subtle); color: #FFFFFF; font-family: var(--font-mono); font-size: 1rem; text-align: center; letter-spacing: 0.1em;"
+        />
+        <div id="admin-gate-error" style="color: #F87171; font-size: 0.8rem; display: none;">
+          Incorrect admin password. Access denied.
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button type="button" id="btn-cancel-admin-auth" class="btn btn-secondary" style="justify-content: center; width: 40%;">
+            Cancel
+          </button>
+          <button type="submit" class="btn btn-primary" style="justify-content: center; width: 60%;">
+            Unlock Portal →
+          </button>
+        </div>
+      </form>
+      <div style="font-size: 0.72rem; color: #64748B;">
+        Admin access passcode: <strong style="color: #94A3B8;">l33t</strong>
       </div>
     </div>
   </div>
@@ -167,9 +200,14 @@
             <h2 class="onboarding-title" style="margin-bottom: 4px;">Assessment Results Portal</h2>
             <p style="color: #94A3B8; font-size: 0.95rem;">Review all student diagnostic submissions, ODE accountability metrics, and metacognitive delta scores.</p>
           </div>
-          <button id="btn-admin-back-home" type="button" class="btn btn-secondary">
-            ← Back to Home
-          </button>
+          <div style="display: flex; gap: 10px;">
+            <button id="btn-admin-lock-portal" type="button" class="btn btn-secondary" title="Lock the Admin Portal">
+              🔒 Lock Admin
+            </button>
+            <button id="btn-admin-back-home" type="button" class="btn btn-secondary">
+              ← Back to Home
+            </button>
+          </div>
         </div>
 
         <!-- High-Level Stats -->

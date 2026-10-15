@@ -128,6 +128,22 @@ function persistCompletedSessionLocally() {
   }
 }
 
+// Helper: Open Admin Gatekeeper Passcode Modal
+function openAdminGatekeeperModal() {
+  const adminOverlay = document.getElementById('admin-gatekeeper-overlay');
+  const adminInput = document.getElementById('input-admin-passcode');
+  const adminError = document.getElementById('admin-gate-error');
+  if (adminError) adminError.style.display = 'none';
+  if (adminInput) {
+    adminInput.value = '';
+    adminInput.style.borderColor = 'var(--border-subtle)';
+  }
+  if (adminOverlay) {
+    adminOverlay.style.display = 'flex';
+    setTimeout(() => adminInput && adminInput.focus(), 100);
+  }
+}
+
 // ============================================================================
 // 3. FINITE STATE MACHINE (FSM) CONTROLLER
 // ============================================================================
@@ -149,6 +165,10 @@ const FSM = {
       document.getElementById('screen-home').classList.add('is-active');
     }
     else if (target === 'admin') {
+      if (sessionStorage.getItem('sonar_admin_auth') !== 'true') {
+        openAdminGatekeeperModal();
+        return;
+      }
       if (progressWrapper) progressWrapper.style.display = 'none';
       if (readAloudBtn) readAloudBtn.style.display = 'none';
       document.getElementById('screen-admin-dashboard').classList.add('is-active');
@@ -1718,12 +1738,12 @@ async function syncItemResponseToCloud(record) {
 
 document.addEventListener('DOMContentLoaded', () => {
 
-  // 1. Passcode Gatekeeper
+  // 1. Passcode Gatekeeper (Assessment Access)
   const gateOverlay = document.getElementById('beta-gatekeeper-overlay');
   const gateForm = document.getElementById('form-beta-gate');
   const gateInput = document.getElementById('input-beta-passcode');
   const gateError = document.getElementById('gatekeeper-error');
-  const BETA_PASSCODE = (window.SONAR_CONFIG && window.SONAR_CONFIG.betaPasscode) || 'sonar2026';
+  const BETA_PASSCODE = (window.SONAR_CONFIG && window.SONAR_CONFIG.betaPasscode) || 'math';
 
   if (sessionStorage.getItem('sonar_beta_auth') === 'true') {
     gateOverlay.style.display = 'none';
@@ -1745,9 +1765,55 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // 1b. Admin Access Gatekeeper Modal & Credentials
+  const adminGateForm = document.getElementById('form-admin-gate');
+  const adminGateInput = document.getElementById('input-admin-passcode');
+  const adminGateError = document.getElementById('admin-gate-error');
+  const adminGateOverlay = document.getElementById('admin-gatekeeper-overlay');
+  const ADMIN_PASSCODE = (window.SONAR_CONFIG && window.SONAR_CONFIG.adminPasscode) || 'l33t';
+
+  if (adminGateForm) {
+    adminGateForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const entered = (adminGateInput.value || '').trim();
+      if (entered === ADMIN_PASSCODE) {
+        sessionStorage.setItem('sonar_admin_auth', 'true');
+        if (adminGateOverlay) adminGateOverlay.style.display = 'none';
+        FSM.goToScreen('admin');
+      } else {
+        if (adminGateError) adminGateError.style.display = 'block';
+        if (adminGateInput) {
+          adminGateInput.style.borderColor = '#EF4444';
+          adminGateInput.focus();
+        }
+      }
+    });
+  }
+
+  const cancelAdminBtn = document.getElementById('btn-cancel-admin-auth');
+  if (cancelAdminBtn) {
+    cancelAdminBtn.addEventListener('click', () => {
+      if (adminGateOverlay) adminGateOverlay.style.display = 'none';
+    });
+  }
+
+  const lockAdminBtn = document.getElementById('btn-admin-lock-portal');
+  if (lockAdminBtn) {
+    lockAdminBtn.addEventListener('click', () => {
+      sessionStorage.removeItem('sonar_admin_auth');
+      FSM.goToScreen('home');
+    });
+  }
+
   // 2. Navigation: Home Landing Page Buttons
   document.getElementById('btn-landing-start-assessment').addEventListener('click', () => FSM.goToScreen(1));
-  document.getElementById('btn-landing-open-admin').addEventListener('click', () => FSM.goToScreen('admin'));
+  document.getElementById('btn-landing-open-admin').addEventListener('click', () => {
+    if (sessionStorage.getItem('sonar_admin_auth') === 'true') {
+      FSM.goToScreen('admin');
+    } else {
+      openAdminGatekeeperModal();
+    }
+  });
 
   document.getElementById('btn-header-home').addEventListener('click', () => {
     if (typeof AppState.currentScreenIndex === 'number' && AppState.currentScreenIndex >= 5 && AppState.currentScreenIndex <= 19) {

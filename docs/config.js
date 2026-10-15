@@ -14,7 +14,10 @@ window.SONAR_CONFIG = {
   supabaseAnonKey: '',  // e.g. 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
 
   // Access Control Passcode (Protects test from unauthorized public access)
-  betaPasscode: 'sonar2026',
+  betaPasscode: 'math',
+
+  // Administrator Portal Passcode
+  adminPasscode: 'l33t',
 
   // Enable automatic offline cache & retry
   enableOfflineCache: true,
