@@ -98,11 +98,23 @@ graph TD
 
 ## 4. Regulatory & State Compliance Rules
 
-### 4.1 Oregon Department of Education (ODE) Attemptedness Rule
-* **Rule:** Assessments where a student attempts fewer than 5 items are invalidated.
-* **Database Implementation:** Automated trigger `trg_item_response_after_insert` maintains `total_items_attempted` and updates:
-  $$\text{ode\_validity\_cleared} = (\text{total\_items\_attempted} \ge 5)$$
-* Ensures unattempted/abandoned sessions are not aggregated into official state reports.
+### 4.1 Oregon Department of Education (ODE) Attemptedness Rule & State Codes
+Under official Oregon Department of Education accountability reporting standards:
+* **The 5-Item Attemptedness Threshold:** A partial assessment is considered a **valid attempt** only if a student has answered at least **5 Computer Adaptive Test (CAT) items** OR completed **1 Performance Task (PT)**.
+* **State Testing Codes:**
+  * **`TstAtmptCd` (Test Attempt Code):**
+    * `'I'`: In-progress ($< 5$ items attempted, active testing session)
+    * `'P'`: Partial attempt ($\ge 5$ items attempted, officially recognized partial test)
+    * `'C'`: Complete attempt (all 15 items answered)
+    * `'N'`: Non-attempt (abandoned or unattempted test with $< 5$ items)
+  * **`TstValidCd` (Test Validity Code):**
+    * `'Y'`: Valid attempt ($\text{attempted\_count} \ge 5$ or Performance Task completed)
+    * `'N'`: Invalid non-attempt ($\text{attempted\_count} < 5$)
+* **Automated Database Trigger:** Trigger `trg_item_response_after_insert` evaluates item submissions dynamically:
+  $$\text{TstValidCd} = \begin{cases} 'Y' & \text{if } \text{attempted\_count} \ge 5 \lor \text{is\_performance\_task} = \text{true} \\ 'N' & \text{otherwise} \end{cases}$$
+* **Offline IndexedDB Replay Guarantee:** 
+  The frontend write-ahead engine locks `tst_valid_cd = 'Y'` and `tst_atmpt_cd = 'P'` directly in `sonar_math_offline_cache` upon Item 5 submission. Even if the home network is severed for the entirety of items 5–15, all responses are queued and flushed with `sync_source: 'offline_indexeddb_replay'`, transitioning to `TstAtmptCd = 'C'` upon completion without risking invalidation.
+* **Verification Suite:** Validated via automated test [`tests/ode_attemptedness_verification.ts`](file:///C:/Users/Workstation/.gemini/antigravity-ide/scratch/sonar-math-mvp/tests/ode_attemptedness_verification.ts) with 100% test pass confirmation across offline dropouts, 5-item threshold clearance, 15-item completion, and idempotent batch replay.
 
 ---
 

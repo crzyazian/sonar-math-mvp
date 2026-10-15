@@ -87,6 +87,22 @@ export type SessionStatus =
   | 'abandoned'
   | 'invalidated';
 
+/**
+ * Oregon Department of Education (ODE) Official State Accountability Codes:
+ * - 'I' = In-progress (< 5 items attempted)
+ * - 'P' = Partial attempt (>= 5 CAT items or 1 Performance Task)
+ * - 'C' = Complete attempt (all 15 diagnostic items answered)
+ * - 'N' = Non-attempt (invalidated, < 5 items upon test abandonment)
+ */
+export type TstAtmptCd = 'I' | 'P' | 'C' | 'N';
+
+/**
+ * Oregon Department of Education (ODE) Official Test Validity Codes:
+ * - 'Y' = Valid attempt (attempted_count >= 5 OR is_performance_task = true)
+ * - 'N' = Invalid non-attempt (attempted_count < 5)
+ */
+export type TstValidCd = 'Y' | 'N';
+
 export type PrimaryInputType = 'mouse' | 'touch' | 'stylus' | 'trackpad' | 'unknown';
 export type DeviceCategory = 'desktop' | 'tablet' | 'mobile' | 'unknown';
 export type PointerType = 'mouse' | 'touch' | 'pen' | 'unknown';
@@ -159,8 +175,13 @@ export interface DiagnosticSessionRecord {
   completed_at?: string | null;
   session_status: SessionStatus;
   
-  /** Total attempted items (ODE requirement: assessments < 5 items are invalidated) */
+  /** Total attempted items */
   total_items_attempted: number;
+  is_performance_task: boolean;
+  
+  /** Oregon Department of Education (ODE) Official State Accountability Codes */
+  tst_atmpt_cd: TstAtmptCd; // 'I' | 'P' | 'C' | 'N'
+  tst_valid_cd: TstValidCd; // 'Y' | 'N'
   ode_validity_cleared: boolean;
   
   // Hardware & Input Profiling (Isolates device latency from student cognitive friction)

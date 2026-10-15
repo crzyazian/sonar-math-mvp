@@ -38,7 +38,11 @@ export interface CachedSessionMetadata {
   completed_at?: string | null;
   session_status: DiagnosticSessionRecord['session_status'];
   total_items_attempted: number;
-  ode_validity_cleared: boolean; // >= 5 items attempted
+  is_performance_task: boolean;
+  /** Oregon Department of Education (ODE) Official State Accountability Codes */
+  tst_atmpt_cd: 'I' | 'P' | 'C' | 'N';
+  tst_valid_cd: 'Y' | 'N';
+  ode_validity_cleared: boolean; // >= 5 items attempted or 1 PT
   hardware_telemetry: {
     primary_input_type: string;
     device_category: string;
@@ -183,7 +187,12 @@ class IndexedDbClient {
    * Persists an item response locally before or concurrently with any network dispatch.
    * Automatically updates session attempted items count and ODE validity status.
    */
-  public async writeAheadItemResponse(response: CachedItemResponse): Promise<{ totalAttempted: number; odeValidityCleared: boolean }> {
+  public async writeAheadItemResponse(response: CachedItemResponse): Promise<{
+    totalAttempted: number;
+    odeValidityCleared: boolean;
+    tstAtmptCd: 'I' | 'P' | 'C' | 'N';
+    tstValidCd: 'Y' | 'N';
+  }> {
     const db = await this.getDb();
 
     return new Promise((resolve, reject) => {
@@ -200,31 +209,47 @@ class IndexedDbClient {
       sessionReq.onsuccess = () => {
         const session: CachedSessionMetadata | undefined = sessionReq.result;
         if (session) {
-          // Count total items for this session in the transaction
           const countReq = responseStore.index('by_session').count(IDBKeyRange.only(response.session_client_id));
           
           countReq.onsuccess = () => {
             const count = countReq.result;
             session.total_items_attempted = count;
-            // Oregon Department of Education Attemptedness Rule: >= 5 items attempted
-            session.ode_validity_cleared = count >= 5;
-            session.session_status = count >= 15 ? 'completed' : 'in_progress';
-            session.updated_at = Date.now();
+            
+            // Oregon Department of Education (ODE) Official Attemptedness Logic:
+            // - TstValidCd = 'Y' if >= 5 CAT items or 1 Performance Task, else 'N'
+            const isValid = count >= 5 || session.is_performance_task === true;
+            session.tst_valid_cd = isValid ? 'Y' : 'N';
+            session.ode_validity_cleared = isValid;
+            
+            // - TstAtmptCd = 'C' (Complete), 'P' (Partial: >= 5), 'I' (In-progress: < 5)
+            if (count >= 15) {
+              session.tst_atmpt_cd = 'C';
+              session.session_status = 'completed';
+              session.completed_at = new Date().toISOString();
+            } else if (count >= 5) {
+              session.tst_atmpt_cd = 'P';
+              session.session_status = 'in_progress';
+            } else {
+              session.tst_atmpt_cd = 'I';
+              session.session_status = 'in_progress';
+            }
 
+            session.updated_at = Date.now();
             sessionStore.put(session);
           };
         }
       };
 
       tx.oncomplete = () => {
-        // Fetch refreshed status to return
         this.getSession(response.session_client_id).then((updatedSession) => {
           resolve({
             totalAttempted: updatedSession?.total_items_attempted ?? 1,
             odeValidityCleared: updatedSession?.ode_validity_cleared ?? false,
+            tstAtmptCd: updatedSession?.tst_atmpt_cd ?? 'I',
+            tstValidCd: updatedSession?.tst_valid_cd ?? 'N',
           });
         }).catch(() => {
-          resolve({ totalAttempted: 1, odeValidityCleared: false });
+          resolve({ totalAttempted: 1, odeValidityCleared: false, tstAtmptCd: 'I', tstValidCd: 'N' });
         });
       };
 

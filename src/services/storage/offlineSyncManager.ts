@@ -23,6 +23,9 @@ export interface SyncProgressUpdate {
   pendingCount: number;
   syncedCount: number;
   totalAttempted: number;
+  /** Oregon Department of Education (ODE) Official State Accountability Codes */
+  tstAtmptCd: 'I' | 'P' | 'C' | 'N';
+  tstValidCd: 'Y' | 'N';
   odeValidityCleared: boolean;
   lastSyncTimestamp?: number;
 }
@@ -93,6 +96,8 @@ class OfflineSyncManager {
         pendingCount: 0,
         syncedCount: 0,
         totalAttempted: 0,
+        tstAtmptCd: 'I',
+        tstValidCd: 'N',
         odeValidityCleared: false,
       };
     }
@@ -107,7 +112,9 @@ class OfflineSyncManager {
       pendingCount: pending.length,
       syncedCount: synced.length,
       totalAttempted: allResponses.length,
-      odeValidityCleared: allResponses.length >= 5, // Oregon Department of Education standard
+      tstAtmptCd: activeSession.tst_atmpt_cd || (allResponses.length >= 15 ? 'C' : allResponses.length >= 5 ? 'P' : 'I'),
+      tstValidCd: activeSession.tst_valid_cd || (allResponses.length >= 5 ? 'Y' : 'N'),
+      odeValidityCleared: (activeSession.tst_valid_cd === 'Y') || (allResponses.length >= 5),
       lastSyncTimestamp: Date.now(),
     };
   }
@@ -266,6 +273,61 @@ class OfflineSyncManager {
     }
   }
 
+  /**
+   * Explicitly flushes all pending responses for a session and validates
+   * that all 15 items have been successfully recorded and synced.
+   */
+  public async flushAllSessionResponses(sessionClientId?: string): Promise<{
+    sessionClientId: string;
+    totalAttempted: number;
+    totalSynced: number;
+    totalPending: number;
+    tstAtmptCd: 'I' | 'P' | 'C' | 'N';
+    tstValidCd: 'Y' | 'N';
+    all15ItemsFlushed: boolean;
+    isValidOdeAttempt: boolean;
+  }> {
+    const activeSession = sessionClientId
+      ? await indexedDbClient.getSession(sessionClientId)
+      : await indexedDbClient.getLatestActiveSession();
+
+    if (!activeSession) {
+      throw new Error('No active session found to flush.');
+    }
+
+    // 1. Flush metadata first
+    await this.syncSessionMetadata(activeSession);
+
+    // 2. Retrieve all pending items and sync sequentially
+    const pendingItems = await indexedDbClient.getPendingResponses(activeSession.client_generated_id);
+    for (const item of pendingItems) {
+      await this.syncSingleItemWithRetry(item);
+    }
+
+    // 3. Post-sync verification audit from IndexedDB
+    const allResponses = await indexedDbClient.getAllResponsesForSession(activeSession.client_generated_id);
+    const syncedItems = allResponses.filter((r) => r.sync_status === 'synced');
+    const stillPending = allResponses.filter((r) => r.sync_status !== 'synced');
+
+    const totalAttempted = allResponses.length;
+    const isComplete = totalAttempted >= 15;
+    const isValid = totalAttempted >= 5 || activeSession.is_performance_task;
+
+    const tstAtmptCd = isComplete ? 'C' : isValid ? 'P' : 'I';
+    const tstValidCd = isValid ? 'Y' : 'N';
+
+    return {
+      sessionClientId: activeSession.client_generated_id,
+      totalAttempted,
+      totalSynced: syncedItems.length,
+      totalPending: stillPending.length,
+      tstAtmptCd,
+      tstValidCd,
+      all15ItemsFlushed: totalAttempted >= 15 && stillPending.length === 0,
+      isValidOdeAttempt: tstValidCd === 'Y',
+    };
+  }
+
   private scheduleExponentialBackoff(retryCount: number): void {
     if (this.syncTimer) clearTimeout(this.syncTimer);
 
@@ -281,3 +343,4 @@ class OfflineSyncManager {
 }
 
 export const offlineSyncManager = new OfflineSyncManager();
+
