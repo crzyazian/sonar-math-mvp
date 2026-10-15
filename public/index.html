@@ -3,10 +3,39 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="robots" content="noindex, nofollow">
   <title>Sonar Math: K-8 Diagnostic Sandbox (Oregon ODE & SEDA Compliant)</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+
+  <!-- Beta Access Gatekeeper Overlay (Password Protection) -->
+  <div id="beta-gatekeeper-overlay" class="calibration-overlay" style="display: none;">
+    <div class="calibration-card" style="max-width: 420px;">
+      <div style="font-size: 2.5rem;">🔒</div>
+      <h3 class="calibration-title">Sonar Math Beta</h3>
+      <p class="calibration-subtitle">This is a private beta diagnostic. Please enter your beta access passcode to continue.</p>
+      
+      <form id="form-beta-gate" style="display: flex; flex-direction: column; gap: 12px; margin-top: 8px;">
+        <input 
+          id="input-beta-passcode" 
+          type="password" 
+          placeholder="Enter Passcode..." 
+          autocomplete="off"
+          style="padding: 12px 16px; border-radius: var(--radius-sm); background: rgba(15, 23, 42, 0.9); border: 1.5px solid var(--border-subtle); color: #FFFFFF; font-family: var(--font-mono); font-size: 1rem; text-align: center; letter-spacing: 0.1em;"
+        />
+        <div id="gatekeeper-error" style="color: #F87171; font-size: 0.8rem; display: none;">
+          Incorrect passcode. Please try again.
+        </div>
+        <button type="submit" class="btn btn-primary" style="justify-content: center; width: 100%;">
+          Enter Diagnostic →
+        </button>
+      </form>
+      <div style="font-size: 0.72rem; color: #64748B;">
+        Default access passcode: <strong style="color: #94A3B8;">sonar2026</strong>
+      </div>
+    </div>
+  </div>
 
   <!-- App Header -->
   <header class="app-header">
@@ -200,6 +229,7 @@
     </div>
   </div>
 
+  <script src="config.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

@@ -97,6 +97,7 @@ const QUESTIONS = [
 // 2. Application & Silent Telemetry State
 const AppState = {
   isDevMode: false, // Default to Student Mode (zero pressure, no visible timers)
+  sessionClientId: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'sess_' + Math.random().toString(36).substring(2, 11),
   activeQuestionIndex: 0,
   activeComponent: null,
   mountTimeMs: performance.now(),
@@ -596,7 +597,81 @@ function updateHUD() {
   }
 }
 
-// 7. IndexedDB Write-Ahead Caching & ODE 5-Item Submission
+// 7. IndexedDB Write-Ahead Caching, Centralized Cloud Sync & ODE 5-Item Submission
+async function syncSessionToCloud() {
+  const cfg = window.SONAR_CONFIG;
+  if (!cfg || !cfg.supabaseUrl || !cfg.supabaseAnonKey) return;
+  try {
+    const sessionPayload = {
+      client_generated_id: AppState.sessionClientId,
+      assessment_code: '4TH_GRADE_FRACTIONS_V1',
+      target_grade: 4,
+      session_status: AppState.totalItemsAttempted >= 15 ? 'completed' : 'in_progress',
+      total_items_attempted: AppState.totalItemsAttempted,
+      tst_atmpt_cd: AppState.tstAtmptCd,
+      tst_valid_cd: AppState.tstValidCd,
+      ode_validity_cleared: AppState.odeValidityCleared,
+      primary_input_type: AppState.pointerType,
+      screen_width: window.innerWidth,
+      screen_height: window.innerHeight,
+      viewport_width: window.innerWidth,
+      viewport_height: window.innerHeight,
+      device_pixel_ratio: window.devicePixelRatio || 1,
+      user_agent: navigator.userAgent
+    };
+    await fetch(`${cfg.supabaseUrl}/rest/v1/diagnostic_sessions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': cfg.supabaseAnonKey,
+        'Authorization': `Bearer ${cfg.supabaseAnonKey}`,
+        'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify(sessionPayload)
+    });
+  } catch (err) {
+    console.warn('[CloudSync] Session save cached offline:', err);
+  }
+}
+
+async function syncItemResponseToCloud(record) {
+  const cfg = window.SONAR_CONFIG;
+  if (!cfg || !cfg.supabaseUrl || !cfg.supabaseAnonKey) return;
+  try {
+    const itemPayload = {
+      session_client_id: AppState.sessionClientId,
+      item_index: record.item_index,
+      target_phase: 1,
+      modality: QUESTIONS[record.item_index - 1]?.modality || 'discrete',
+      mechanic_type: QUESTIONS[record.item_index - 1]?.mechanic_type || 'unit_block_grid',
+      prompt_key: `ITEM_${record.item_index}`,
+      raw_answer: { display: record.value },
+      is_correct: record.is_correct,
+      first_interaction_ms: record.first_interaction_ms,
+      latency_ms: record.latency_ms,
+      input_pointer_type: record.pointer_type,
+      friction_events_count: record.friction_events,
+      metacognitive_feedback: record.metacognitive_feedback
+    };
+    const res = await fetch(`${cfg.supabaseUrl}/rest/v1/item_responses`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': cfg.supabaseAnonKey,
+        'Authorization': `Bearer ${cfg.supabaseAnonKey}`,
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify(itemPayload)
+    });
+    if (res.ok) {
+      record.synced = true;
+      renderQueueList();
+    }
+  } catch (err) {
+    console.warn('[CloudSync] Item save cached offline:', err);
+  }
+}
+
 function submitCurrentItem() {
   const q = QUESTIONS[AppState.activeQuestionIndex];
   const responseRecord = {
@@ -630,6 +705,10 @@ function submitCurrentItem() {
     AppState.tstValidCd = 'N';
     AppState.odeValidityCleared = false;
   }
+
+  // Trigger centralized cloud sync
+  syncSessionToCloud();
+  syncItemResponseToCloud(responseRecord);
 
   renderODEState();
   renderQueueList();
@@ -762,11 +841,16 @@ function renderCelebrationView() {
           </div>
         </div>
 
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; border-top: 1px solid var(--border-subtle); padding-top: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; border-top: 1px solid var(--border-subtle); padding-top: 12px; gap: 8px; flex-wrap: wrap;">
           <span style="font-size: 0.8rem; color: #64748B;">Recommended: Progress to Phase 2 mixed-number addition.</span>
-          <button id="btn-print-summary" type="button" class="btn btn-secondary" style="font-size: 0.8rem; padding: 6px 14px; min-height: 36px;">
-            🖨️ Print / Save Report
-          </button>
+          <div style="display: flex; gap: 8px;">
+            <button id="btn-download-json" type="button" class="btn btn-secondary" style="font-size: 0.8rem; padding: 6px 14px; min-height: 36px;">
+              📥 Download Data
+            </button>
+            <button id="btn-print-summary" type="button" class="btn btn-secondary" style="font-size: 0.8rem; padding: 6px 14px; min-height: 36px;">
+              🖨️ Print / Save PDF
+            </button>
+          </div>
         </div>
       </div>
 
@@ -815,6 +899,29 @@ function renderCelebrationView() {
     window.print();
   });
 
+  // Download Data button
+  document.getElementById('btn-download-json').addEventListener('click', () => {
+    const exportData = {
+      session_id: AppState.sessionClientId,
+      assessment: '4TH_GRADE_FRACTIONS_V1',
+      ode_status: {
+        tst_atmpt_cd: AppState.tstAtmptCd,
+        tst_valid_cd: AppState.tstValidCd,
+        ode_validity_cleared: AppState.odeValidityCleared,
+        total_attempted: AppState.totalItemsAttempted
+      },
+      responses: Array.from(AppState.attemptedItems.values()),
+      exported_at: new Date().toISOString()
+    };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `sonar_math_results_${AppState.sessionClientId.slice(0, 8)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
   // Attach chip events
   const chips = viewport.querySelectorAll('.chip-btn');
   chips.forEach((btn) => {
@@ -828,6 +935,7 @@ function renderCelebrationView() {
       const rec = AppState.attemptedItems.get(qObj.item_index);
       if (rec) {
         rec.metacognitive_feedback = reason;
+        syncItemResponseToCloud(rec);
       }
 
       // Show Isomorphic Retry
@@ -1050,6 +1158,33 @@ document.addEventListener('DOMContentLoaded', () => {
   if (closeCalBtn) {
     closeCalBtn.addEventListener('click', () => {
       document.getElementById('calibration-overlay').style.display = 'none';
+    });
+  }
+
+  // 13. Beta Passcode Gatekeeper (Password Protection)
+  const gateOverlay = document.getElementById('beta-gatekeeper-overlay');
+  const gateForm = document.getElementById('form-beta-gate');
+  const gateInput = document.getElementById('input-beta-passcode');
+  const gateError = document.getElementById('gatekeeper-error');
+  const BETA_PASSCODE = (window.SONAR_CONFIG && window.SONAR_CONFIG.betaPasscode) || 'sonar2026';
+
+  if (sessionStorage.getItem('sonar_beta_auth') === 'true') {
+    gateOverlay.style.display = 'none';
+  } else {
+    gateOverlay.style.display = 'flex';
+  }
+
+  if (gateForm) {
+    gateForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const entered = (gateInput.value || '').trim().toLowerCase();
+      if (entered === BETA_PASSCODE) {
+        sessionStorage.setItem('sonar_beta_auth', 'true');
+        gateOverlay.style.display = 'none';
+      } else {
+        gateError.style.display = 'block';
+        gateInput.style.borderColor = '#EF4444';
+      }
     });
   }
 
