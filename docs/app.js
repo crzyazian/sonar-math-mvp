@@ -1,29 +1,19 @@
 /**
- * Sonar Math MVP: Complete 20-Stage Finite State Machine (FSM)
+ * Sonar Math MVP: Complete Application & Finite State Machine Engine
  * 
- * Flow Architecture:
- * - Screens 1-4: Onboarding & Calibration Flow
- *     1: Grade Router (Grade 3, 4 [Active Pilot], 5)
- *     2: Modality Self-Perception Selection (Discrete, Continuous, Abstract)
- *     3: Behavioral Interest Prompt (Space, Ocean, Bakery, Sports)
- *     4: Sandbox Welcome & Pre-Test Device Calibration Check (Touch acknowledgment, latency baseline, audio check)
- * - Screens 5-19: Full 15-Question Diagnostic Battery (Phases 1, 2, 3)
- *     Driven by immutable questions.json schema:
- *     - Phase 1 Fluency: Items 1-5 (Cylinder, Grid, Slider, Cross-Out, Multiple Choice)
- *     - Phase 2 Transfer: Items 6-10 (Cylinder Addition, Cross-Out Subtraction, Numeric Fraction, Slider, Word Problem)
- *     - Phase 3 Operations & Mixed: Items 11-15 (Repeated Addition Grid, Multiplication Cylinder, Numeric Improper, Comparison Slider, Multiplication Choice)
- * - Screen 20: Post-Check and Metacognitive Delta Calculation Screen
- *     - Qualitative Misconception Tagging
- *     - Isomorphic Second-Chance Challenge
- *     - Metacognitive Alignment Delta (Self-Perception vs Empirical Accuracy)
- *     - Oregon ODE Accountability Clearance (TstAtmptCd: 'C', TstValidCd: 'Y')
- *     - JSON Data Export & PDF Report
+ * Features:
+ * - Home Landing Page: Welcoming introduction, diagnostic purpose, 3 training modalities.
+ * - Educator / Admin Results Portal: Live statistics, student submission table, CSV/JSON export.
+ * - Screens 1-4: Onboarding (Grade router, modality self-perception, theme, input calibration).
+ * - Screens 5-19: 15-Question Diagnostic Battery (Phases 1, 2, 3) across 5 interactive mechanics.
+ * - Screen 20: Post-Assessment Page with Metacognitive Delta Calculation.
+ * - Interactive Missed Questions Reviewer: Pop-up explanations across all 3 training modalities.
  */
 
 // 1. Application State & Storage
 const AppState = {
-  currentScreenIndex: 1, // 1 to 20
-  isDevMode: false, // Default to Student Mode (silent background telemetry, no distraction)
+  currentScreenIndex: 'home', // 'home' | 'admin' | 1..20
+  isDevMode: false,
   sessionClientId: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'sess_' + Math.random().toString(36).substring(2, 11),
   
   // Onboarding Profile
@@ -38,7 +28,7 @@ const AppState = {
   },
 
   // Active Diagnostic Item State
-  activeQuestionIndex: 0, // 0 to 14 (mapping to items 1 to 15)
+  activeQuestionIndex: 0, // 0 to 14
   activeComponent: null,
   mountTimeMs: performance.now(),
   firstInteractionMs: 0,
@@ -65,27 +55,11 @@ const AppState = {
 };
 
 // 2. Load Questions from questions.data.js (or fallback)
-const QUESTIONS_SOURCE = (window.SONAR_QUESTIONS && window.SONAR_QUESTIONS.questions) || [
-  {
-    item_index: 1,
-    target_phase: 1,
-    modality: "continuous",
-    mechanic_type: "graduated_cylinder_pour",
-    prompt_text: "Pour water into the graduated cylinder until it is exactly 3/4 full.",
-    sub_text: "Drag the water level to fill the cylinder. Release when you are ready.",
-    correct_answer: { display_string: "3/4", normalized_value: 0.75, fraction: { numerator: 3, denominator: 4 }, acceptable_margin: 0.02 },
-    mechanic_payload: { type: "graduated_cylinder_pour", config: { max_capacity_ml: 1000, tick_interval_ml: 50, major_ticks: [0, 250, 500, 750, 1000], target_ratio: 0.75, target_fraction: { numerator: 3, denominator: 4 }, snap_tolerance_ratio: 0.02, unit_label: "mL" } },
-    seda_domain: "4.NF.A (Equivalence)",
-    pedagogical_objective: "Benchmark visual identification of three-fourths in a continuous volume manipulative."
-  }
-];
+const QUESTIONS_SOURCE = (window.SONAR_QUESTIONS && window.SONAR_QUESTIONS.questions) || [];
 
 // Helper: Speak Text Aloud via Web Speech API
 function speakPromptAloud(text) {
-  if (!('speechSynthesis' in window)) {
-    console.warn('Speech synthesis not supported in this browser.');
-    return;
-  }
+  if (!('speechSynthesis' in window)) return;
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.rate = 0.95;
@@ -94,69 +68,146 @@ function speakPromptAloud(text) {
   window.speechSynthesis.speak(utterance);
 }
 
+// Helper: Save Completed Session to LocalStorage for Admin Portal
+function persistCompletedSessionLocally() {
+  try {
+    const sessions = JSON.parse(localStorage.getItem('sonar_assessment_sessions') || '[]');
+    let discreteCorrect = 0, discreteTotal = 0;
+    let continuousCorrect = 0, continuousTotal = 0;
+    let abstractCorrect = 0, abstractTotal = 0;
+    let totalScore = 0;
+
+    AppState.attemptedItems.forEach((item) => {
+      if (item.is_correct) totalScore++;
+      if (item.modality === 'discrete') {
+        discreteTotal++;
+        if (item.is_correct) discreteCorrect++;
+      } else if (item.modality === 'continuous') {
+        continuousTotal++;
+        if (item.is_correct) continuousCorrect++;
+      } else if (item.modality === 'abstract') {
+        abstractTotal++;
+        if (item.is_correct) abstractCorrect++;
+      }
+    });
+
+    const perfMap = {
+      discrete: discreteTotal > 0 ? Math.round((discreteCorrect / discreteTotal) * 100) : 0,
+      continuous: continuousTotal > 0 ? Math.round((continuousCorrect / continuousTotal) * 100) : 0,
+      abstract: abstractTotal > 0 ? Math.round((abstractCorrect / abstractTotal) * 100) : 0
+    };
+
+    const pref = AppState.onboarding.preferredModality;
+    const prefScore = perfMap[pref] || 0;
+    const nonPrefKeys = ['discrete', 'continuous', 'abstract'].filter((k) => k !== pref);
+    const nonPrefScore = Math.round(((perfMap[nonPrefKeys[0]] || 0) + (perfMap[nonPrefKeys[1]] || 0)) / 2);
+    const deltaCal = prefScore - nonPrefScore;
+
+    const sessionSummary = {
+      sessionId: AppState.sessionClientId,
+      timestamp: new Date().toLocaleString(),
+      grade: AppState.onboarding.selectedGrade,
+      preferredModality: pref,
+      theme: AppState.onboarding.interestTheme,
+      score: totalScore,
+      totalItems: AppState.totalItemsAttempted,
+      accuracyPct: Math.round((totalScore / Math.max(1, AppState.totalItemsAttempted)) * 100),
+      tstAtmptCd: AppState.tstAtmptCd,
+      tstValidCd: AppState.tstValidCd,
+      deltaCal: deltaCal,
+      baselineLatencyMs: AppState.onboarding.baselineMotorLatencyMs,
+      pointerType: AppState.pointerType,
+      responses: Array.from(AppState.attemptedItems.values())
+    };
+
+    // Prepend new session
+    sessions.unshift(sessionSummary);
+    localStorage.setItem('sonar_assessment_sessions', JSON.stringify(sessions));
+  } catch (err) {
+    console.warn('[Storage] Failed to save session summary locally:', err);
+  }
+}
+
 // ============================================================================
 // 3. FINITE STATE MACHINE (FSM) CONTROLLER
 // ============================================================================
 
 const FSM = {
-  goToScreen(screenNum) {
-    if (screenNum < 1 || screenNum > 20) return;
-    AppState.currentScreenIndex = screenNum;
-
-    // Update Progress Header
-    const progressFill = document.getElementById('step-progress-fill');
-    const counterText = document.getElementById('step-counter-text');
-    const progressPercent = Math.min(100, Math.round((screenNum / 20) * 100));
-    if (progressFill) progressFill.style.width = `${progressPercent}%`;
+  goToScreen(target) {
+    AppState.currentScreenIndex = target;
 
     // Hide all screens
     document.querySelectorAll('.fsm-screen').forEach((el) => el.classList.remove('is-active'));
+    const progressWrapper = document.getElementById('step-progress-wrapper');
     const readAloudBtn = document.getElementById('btn-read-aloud');
+    const progressFill = document.getElementById('step-progress-fill');
+    const counterText = document.getElementById('step-counter-text');
 
-    // Route Screen State
-    if (screenNum === 1) {
+    if (target === 'home') {
+      if (progressWrapper) progressWrapper.style.display = 'none';
+      if (readAloudBtn) readAloudBtn.style.display = 'none';
+      document.getElementById('screen-home').classList.add('is-active');
+    }
+    else if (target === 'admin') {
+      if (progressWrapper) progressWrapper.style.display = 'none';
+      if (readAloudBtn) readAloudBtn.style.display = 'none';
+      document.getElementById('screen-admin-dashboard').classList.add('is-active');
+      renderAdminDashboard();
+    }
+    else if (target === 1) {
+      if (progressWrapper) progressWrapper.style.display = 'flex';
       if (counterText) counterText.textContent = `Screen 1 of 20: Grade Selection`;
+      if (progressFill) progressFill.style.width = `5%`;
+      if (readAloudBtn) readAloudBtn.style.display = 'none';
       document.getElementById('screen-1-grade').classList.add('is-active');
-      if (readAloudBtn) readAloudBtn.style.display = 'none';
-    } 
-    else if (screenNum === 2) {
+    }
+    else if (target === 2) {
+      if (progressWrapper) progressWrapper.style.display = 'flex';
       if (counterText) counterText.textContent = `Screen 2 of 20: Modality Calibration`;
+      if (progressFill) progressFill.style.width = `10%`;
+      if (readAloudBtn) readAloudBtn.style.display = 'none';
       document.getElementById('screen-2-modality').classList.add('is-active');
-      if (readAloudBtn) readAloudBtn.style.display = 'none';
-    } 
-    else if (screenNum === 3) {
+    }
+    else if (target === 3) {
+      if (progressWrapper) progressWrapper.style.display = 'flex';
       if (counterText) counterText.textContent = `Screen 3 of 20: Lab Theme`;
+      if (progressFill) progressFill.style.width = `15%`;
+      if (readAloudBtn) readAloudBtn.style.display = 'none';
       document.getElementById('screen-3-theme').classList.add('is-active');
+    }
+    else if (target === 4) {
+      if (progressWrapper) progressWrapper.style.display = 'flex';
+      if (counterText) counterText.textContent = `Screen 4 of 20: Device Calibration`;
+      if (progressFill) progressFill.style.width = `20%`;
       if (readAloudBtn) readAloudBtn.style.display = 'none';
-    } 
-    else if (screenNum === 4) {
-      if (counterText) counterText.textContent = `Screen 4 of 20: Input Calibration Check`;
       document.getElementById('screen-4-calibration').classList.add('is-active');
-      if (readAloudBtn) readAloudBtn.style.display = 'none';
-    } 
-    else if (screenNum >= 5 && screenNum <= 19) {
-      const qIndex = screenNum - 5; // 0 to 14
+    }
+    else if (typeof target === 'number' && target >= 5 && target <= 19) {
+      if (progressWrapper) progressWrapper.style.display = 'flex';
+      const qIndex = target - 5;
       const qNum = qIndex + 1;
       const q = QUESTIONS_SOURCE[qIndex] || QUESTIONS_SOURCE[0];
       const phaseNames = { 1: 'Fluency', 2: 'Continuous Transfer', 3: 'Mixed & Regrouping' };
 
+      const pct = Math.round((target / 20) * 100);
+      if (progressFill) progressFill.style.width = `${pct}%`;
       if (counterText) {
-        counterText.textContent = `Screen ${screenNum} of 20 • Item ${qNum}/15 (${phaseNames[q.target_phase]})`;
+        counterText.textContent = `Screen ${target} of 20 • Item ${qNum}/15 (${phaseNames[q.target_phase]})`;
       }
-      document.getElementById('screen-diagnostic').classList.add('is-active');
       if (readAloudBtn) readAloudBtn.style.display = 'inline-flex';
-      
-      mountDiagnosticQuestion(qIndex);
-    } 
-    else if (screenNum === 20) {
-      if (counterText) counterText.textContent = `Screen 20 of 20: Metacognitive Delta`;
-      document.getElementById('screen-20-postcheck').classList.add('is-active');
-      if (readAloudBtn) readAloudBtn.style.display = 'none';
+      document.getElementById('screen-diagnostic').classList.add('is-active');
 
+      mountDiagnosticQuestion(qIndex);
+    }
+    else if (target === 20) {
+      if (progressWrapper) progressWrapper.style.display = 'none';
+      if (readAloudBtn) readAloudBtn.style.display = 'none';
+      document.getElementById('screen-20-postcheck').classList.add('is-active');
+
+      persistCompletedSessionLocally();
       renderScreen20Delta();
     }
 
-    // Scroll to top of stage
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 };
@@ -227,7 +278,7 @@ class CylinderComponent {
       this.updateFromPointer(e.clientY);
     });
 
-    const stopDrag = (e) => {
+    const stopDrag = () => {
       if (!this.isDragging) return;
       this.isDragging = false;
       this.applySnap();
@@ -359,7 +410,6 @@ class CylinderComponent {
     ctx.lineWidth = 3;
     ctx.stroke();
 
-    // Arrows in handle
     ctx.fillStyle = '#0F172A';
     ctx.font = '800 12px sans-serif';
     ctx.textAlign = 'center';
@@ -394,7 +444,6 @@ class GridComponent {
     this.highlighted = new Set(this.config.initial_highlighted_cells || []);
     this.crossedOut = new Set();
     this.isPointerDown = false;
-    this.dragTargetState = null;
 
     this.root = document.createElement('div');
     this.root.className = 'grid-manipulative-root';
@@ -467,7 +516,6 @@ class GridComponent {
           `;
         }
       } else {
-        // select_and_shade
         if (this.highlighted.has(idx)) {
           this.highlighted.delete(idx);
           cell.classList.remove('is-shaded');
@@ -502,7 +550,7 @@ class GridComponent {
     if (this.actionMode === 'cross_out') {
       const initial = this.config.initial_highlighted_cells?.length || total;
       active = initial - this.crossedOut.size;
-      AppState.currentValueDisplay = `${active} active blocks (${this.crossedOut.size} crossed out)`;
+      AppState.currentValueDisplay = `${active} active blocks`;
     } else {
       active = this.highlighted.size;
       AppState.currentValueDisplay = `${active} / ${total} shaded`;
@@ -518,7 +566,7 @@ class GridComponent {
   }
 }
 
-/** Component 3: Continuous Number Line Slider Component (±2.5% Interval Snap) */
+/** Component 3: Continuous Number Line Slider Component (±2.5% Snap) */
 class NumberLineSliderComponent {
   constructor(container, q) {
     this.container = container;
@@ -527,7 +575,6 @@ class NumberLineSliderComponent {
       min_value: 0.0,
       max_value: 1.0,
       step_fraction: { numerator: 1, denominator: 8 },
-      target_fraction: { numerator: 5, denominator: 8 },
       target_decimal: 0.625,
       snap_tolerance: 0.025
     };
@@ -601,7 +648,6 @@ class NumberLineSliderComponent {
       const rawPct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
       let val = this.min + rawPct * (this.max - this.min);
 
-      // Magnetic snap to nearest tick
       const nearestStep = Math.round((val - this.min) / this.step);
       const snappedVal = this.min + nearestStep * this.step;
       if (Math.abs(val - snappedVal) <= (this.config.snap_tolerance || 0.025)) {
@@ -630,7 +676,6 @@ class NumberLineSliderComponent {
     this.thumb.addEventListener('pointerup', stop);
     this.thumb.addEventListener('pointercancel', stop);
 
-    // Clicking anywhere on track also moves thumb
     this.trackWrapper.addEventListener('pointerdown', (e) => {
       this.isDragging = true;
       onMove(e.clientX);
@@ -642,9 +687,7 @@ class NumberLineSliderComponent {
     const pct = ((this.currentVal - this.min) / range) * 100;
     this.thumb.style.left = `${pct}%`;
     const callout = document.getElementById('nl-callout-bubble');
-    if (callout) {
-      callout.textContent = this.currentVal.toFixed(2);
-    }
+    if (callout) callout.textContent = this.currentVal.toFixed(2);
   }
 
   syncTelemetry() {
@@ -705,7 +748,7 @@ class MultipleChoiceComponent {
   }
 
   syncTelemetry() {
-    AppState.currentValueDisplay = `Selected: ${this.selectedId || 'None'}`;
+    AppState.currentValueDisplay = `Option ${this.selectedId || 'None'}`;
     const targetMatch = this.q.correct_answer?.exact_match;
     AppState.isCurrentAnswerCorrect = (this.selectedId === targetMatch);
     updateHUD();
@@ -716,7 +759,7 @@ class MultipleChoiceComponent {
   }
 }
 
-/** Component 5: Numeric Fraction Box Input (Stacked Numerator/Denominator) */
+/** Component 5: Numeric Fraction Box Input */
 class NumericFractionInputComponent {
   constructor(container, q) {
     this.container = container;
@@ -763,12 +806,11 @@ class NumericFractionInputComponent {
     box.appendChild(this.denInput);
 
     this.root.appendChild(box);
-
     this.initEvents();
   }
 
   initEvents() {
-    const onType = (e) => {
+    const onType = () => {
       AppState.pointerType = 'keyboard';
       if (AppState.firstInteractionMs === 0) {
         AppState.firstInteractionMs = performance.now() - AppState.mountTimeMs;
@@ -780,7 +822,6 @@ class NumericFractionInputComponent {
     this.denInput.addEventListener('input', onType);
     if (this.wholeInput) this.wholeInput.addEventListener('input', onType);
 
-    // Auto-advance from num to den on enter
     this.numInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === 'Tab') {
         e.preventDefault();
@@ -798,7 +839,6 @@ class NumericFractionInputComponent {
     if (this.wholeInput && whole > 0) display = `${whole} ${display}`;
     AppState.currentValueDisplay = display;
 
-    // Check correctness
     let correct = false;
     if (this.config.allow_mixed_number && whole > 0) {
       const targetW = this.config.target_whole || 0;
@@ -806,10 +846,8 @@ class NumericFractionInputComponent {
       const targetD = this.config.target_denominator;
       correct = (whole === targetW && num === targetN && den === targetD);
     } else {
-      // Direct fraction or improper match
       const targetN = this.config.target_numerator;
       const targetD = this.config.target_denominator;
-      // Also allow mathematically equivalent if not requiring simplified
       const val = den > 0 ? num / den : -1;
       const targetVal = targetD > 0 ? targetN / targetD : -2;
       correct = Math.abs(val - targetVal) < 0.001;
@@ -851,7 +889,6 @@ function mountDiagnosticQuestion(index) {
   }
   viewport.innerHTML = '';
 
-  // Instantiate appropriate mechanic
   const mType = q.mechanic_type;
   if (mType === 'graduated_cylinder_pour') {
     AppState.activeComponent = new CylinderComponent(viewport, q);
@@ -908,14 +945,12 @@ function submitCurrentQuestion() {
     AppState.odeValidityCleared = false;
   }
 
-  // Cloud sync hook
   syncSessionToCloud();
   syncItemResponseToCloud(responseRecord);
 
   renderODEState();
   renderQueueList();
 
-  // Advance FSM: If completed item 15 (index 14), go to Screen 20!
   if (AppState.activeQuestionIndex >= QUESTIONS_SOURCE.length - 1) {
     FSM.goToScreen(20);
   } else {
@@ -924,7 +959,7 @@ function submitCurrentQuestion() {
 }
 
 // ============================================================================
-// 7. SCREEN 20: METACOGNITIVE DELTA CALCULATION ENGINE
+// 7. SCREEN 20: POST-ASSESSMENT & METACOGNITIVE DELTA CALCULATION
 // ============================================================================
 
 function renderScreen20Delta() {
@@ -935,8 +970,10 @@ function renderScreen20Delta() {
   let discreteCorrect = 0, discreteTotal = 0;
   let continuousCorrect = 0, continuousTotal = 0;
   let abstractCorrect = 0, abstractTotal = 0;
+  let totalScore = 0;
 
   AppState.attemptedItems.forEach((item) => {
+    if (item.is_correct) totalScore++;
     if (item.modality === 'discrete') {
       discreteTotal++;
       if (item.is_correct) discreteCorrect++;
@@ -953,15 +990,13 @@ function renderScreen20Delta() {
   const pctContinuous = continuousTotal > 0 ? Math.round((continuousCorrect / continuousTotal) * 100) : 0;
   const pctAbstract = abstractTotal > 0 ? Math.round((abstractCorrect / abstractTotal) * 100) : 0;
 
-  // 2. Metacognitive Calibration Delta
-  const pref = AppState.onboarding.preferredModality; // 'discrete', 'continuous', 'abstract'
+  const pref = AppState.onboarding.preferredModality;
   const perfMap = { discrete: pctDiscrete, continuous: pctContinuous, abstract: pctAbstract };
   const prefScore = perfMap[pref] || 0;
   
-  // Non-preferred average
   const nonPrefKeys = ['discrete', 'continuous', 'abstract'].filter((k) => k !== pref);
   const nonPrefScore = Math.round((perfMap[nonPrefKeys[0]] + perfMap[nonPrefKeys[1]]) / 2);
-  const deltaCal = prefScore - nonPrefScore; // Metacognitive delta
+  const deltaCal = prefScore - nonPrefScore;
 
   let alignmentInsight = '';
   if (deltaCal >= 15) {
@@ -970,20 +1005,28 @@ function renderScreen20Delta() {
     const highestMod = Object.keys(perfMap).reduce((a, b) => perfMap[a] > perfMap[b] ? a : b);
     alignmentInsight = `💡 <strong>Hidden Superpower Discovered:</strong> While you selected ${pref.toUpperCase()} initially, you demonstrated the highest natural mastery in ${highestMod.toUpperCase()} representations (${perfMap[highestMod]}%).`;
   } else {
-    alignmentInsight = `⚖️ <strong>Balanced Representation Transfer:</strong> You exhibited consistent, versatile fluency across both discrete models and continuous fluid representations (±${Math.abs(deltaCal)}% Delta).`;
+    alignmentInsight = `⚖️ <strong>Balanced Representation Transfer:</strong> You exhibited consistent, versatile fluency across discrete models, continuous fluids, and abstract equations (±${Math.abs(deltaCal)}% Delta).`;
   }
 
-  // 3. Find candidate tricky problem for reflection
+  // Find missed items for review
   const missedItems = Array.from(AppState.attemptedItems.values()).filter((i) => !i.is_correct);
   const focusItem = missedItems.length > 0 ? missedItems[0] : (AppState.attemptedItems.get(1) || { item_index: 1, prompt: 'Item 1' });
 
   mount.innerHTML = `
     <div class="onboarding-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+        <span class="onboarding-title-badge">Screen 20 of 20 • Post-Assessment Report</span>
+        <button id="btn-report-back-home" type="button" class="btn btn-secondary">
+          🏠 Return to Home Page
+        </button>
+      </div>
+
       <div style="text-align: center; margin-bottom: 24px;">
         <div style="font-size: 3rem;">🎉</div>
         <h2 class="onboarding-title" style="margin-bottom: 4px;">Diagnostic Assessment Complete!</h2>
         <p class="onboarding-desc" style="margin-bottom: 0;">
-          All 15 items answered. Oregon ODE Validity Standard Cleared (TstAtmptCd: '${AppState.tstAtmptCd}', TstValidCd: '${AppState.tstValidCd}').
+          Final Score: <strong>${totalScore} / 15 (${Math.round((totalScore / 15) * 100)}%)</strong> • 
+          Oregon ODE State Validity Cleared (TstAtmptCd: '${AppState.tstAtmptCd}', TstValidCd: '${AppState.tstValidCd}').
         </p>
       </div>
 
@@ -992,12 +1035,12 @@ function renderScreen20Delta() {
         <div class="delta-card">
           <div class="delta-header">
             <span class="metric-label">Self-Perceived Preference</span>
-            <span class="delta-badge-gain">Pre-Test Screen 2</span>
+            <span class="delta-badge-gain">Pre-Test Setup</span>
           </div>
           <div class="delta-value" style="color: #38BDF8; font-size: 1.5rem; text-transform: capitalize;">
             ${pref} Models
           </div>
-          <span style="font-size: 0.82rem; color: #94A3B8;">Your initial chosen learning style</span>
+          <span style="font-size: 0.82rem; color: #94A3B8;">Initial learning perception</span>
         </div>
 
         <div class="delta-card">
@@ -1013,7 +1056,7 @@ function renderScreen20Delta() {
 
         <div class="delta-card">
           <div class="delta-header">
-            <span class="metric-label">Metacognitive Calibration (Δ)</span>
+            <span class="metric-label">Metacognitive Delta (Δ)</span>
             <span class="delta-badge-gain">${deltaCal >= 0 ? '+' : ''}${deltaCal}%</span>
           </div>
           <div class="delta-value" style="color: #A855F7;">
@@ -1032,10 +1075,10 @@ function renderScreen20Delta() {
       <div class="reflection-panel" style="margin-top: 0; margin-bottom: 24px;">
         <div class="reflection-title">
           <span>🧠</span>
-          <span>Post-Assessment Reflection (Item ${focusItem.item_index})</span>
+          <span>Metacognitive Reflection (Item ${focusItem.item_index})</span>
         </div>
         <p style="font-size: 0.92rem; color: #CBD5E1; margin-bottom: 12px;">
-          What made this problem tricky for you? Your feedback helps us separate mechanical motor slips from math concepts:
+          What made this problem tricky for you? Your feedback helps separate motor slips from conceptual misunderstandings:
         </p>
 
         <div class="misconception-chips" id="delta-reflection-chips">
@@ -1068,9 +1111,32 @@ function renderScreen20Delta() {
         </div>
       </div>
 
+      <!-- ================================================================
+           REVIEW MISSED QUESTIONS & TRAINING MODALITY EXPLAINERS
+           ================================================================ -->
+      <div class="review-section-container">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+          <div>
+            <h3 style="color: #FFFFFF; font-size: 1.25rem; font-weight: 800;">🔍 Review Questions & Learning Modalities</h3>
+            <p style="color: #94A3B8; font-size: 0.88rem;">Review any question and explore why the answer was correct across our 3 training modalities.</p>
+          </div>
+          <button id="btn-toggle-review-missed" type="button" class="btn btn-primary" style="font-size: 0.9rem; padding: 10px 20px;">
+            ${missedItems.length > 0 ? `Review Missed Questions (${missedItems.length}) ▼` : `Review All Questions ▼`}
+          </button>
+        </div>
+
+        <div id="missed-questions-wrapper" style="display: block;">
+          <div id="missed-questions-list">
+            <!-- Populated by renderMissedQuestionsList() -->
+          </div>
+        </div>
+      </div>
+
       <!-- Action Exports -->
-      <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-subtle); padding-top: 20px; flex-wrap: wrap; gap: 12px;">
-        <span style="font-size: 0.85rem; color: #94A3B8;">All 15 telemetry records persisted in IndexedDB & Cloud Sync.</span>
+      <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-subtle); padding-top: 24px; margin-top: 24px; flex-wrap: wrap; gap: 12px;">
+        <button id="btn-bottom-return-home" type="button" class="btn btn-secondary">
+          🏠 Return to Landing Page
+        </button>
         <div style="display: flex; gap: 10px;">
           <button id="btn-export-results-json" type="button" class="btn btn-secondary">
             📥 Download Results (JSON)
@@ -1083,7 +1149,23 @@ function renderScreen20Delta() {
     </div>
   `;
 
-  // Attach reflection events
+  // Render missed questions list
+  renderMissedQuestionsList(missedItems.length > 0 ? missedItems : Array.from(AppState.attemptedItems.values()).slice(0, 3));
+
+  // Toggle review accordion
+  const toggleReviewBtn = document.getElementById('btn-toggle-review-missed');
+  const reviewWrapper = document.getElementById('missed-questions-wrapper');
+  if (toggleReviewBtn && reviewWrapper) {
+    toggleReviewBtn.addEventListener('click', () => {
+      const isHidden = reviewWrapper.style.display === 'none';
+      reviewWrapper.style.display = isHidden ? 'block' : 'none';
+      toggleReviewBtn.textContent = isHidden 
+        ? `${missedItems.length > 0 ? `Hide Missed Questions (${missedItems.length}) ▲` : `Hide Questions ▲`}`
+        : `${missedItems.length > 0 ? `Review Missed Questions (${missedItems.length}) ▼` : `Review All Questions ▼`}`;
+    });
+  }
+
+  // Reflection selection
   mount.querySelectorAll('.chip-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       mount.querySelectorAll('.chip-btn').forEach((c) => c.classList.remove('is-selected'));
@@ -1091,7 +1173,6 @@ function renderScreen20Delta() {
       const reason = btn.getAttribute('data-reason');
       AppState.selectedMisconceptionTag = reason;
 
-      // Reveal isomorphic retry
       const retryBox = document.getElementById('isomorphic-second-chance');
       const stage = document.getElementById('retry-component-stage');
       if (retryBox && stage) {
@@ -1110,7 +1191,7 @@ function renderScreen20Delta() {
     });
   });
 
-  // Submit retry
+  // Second chance submit
   const submitRetryBtn = document.getElementById('btn-submit-retry-delta');
   if (submitRetryBtn) {
     submitRetryBtn.addEventListener('click', () => {
@@ -1122,48 +1203,361 @@ function renderScreen20Delta() {
     });
   }
 
-  // Print Report
-  const printBtn = document.getElementById('btn-print-delta-report');
-  if (printBtn) printBtn.addEventListener('click', () => window.print());
+  // Navigation: Back to Home
+  document.getElementById('btn-report-back-home').addEventListener('click', () => FSM.goToScreen('home'));
+  document.getElementById('btn-bottom-return-home').addEventListener('click', () => FSM.goToScreen('home'));
+
+  // Print PDF
+  document.getElementById('btn-print-delta-report').addEventListener('click', () => window.print());
 
   // Download JSON
-  const downloadBtn = document.getElementById('btn-export-results-json');
-  if (downloadBtn) {
-    downloadBtn.addEventListener('click', () => {
-      const payload = {
-        session_id: AppState.sessionClientId,
-        assessment_code: '4TH_GRADE_FRACTIONS_V1',
-        target_grade: AppState.onboarding.selectedGrade,
-        onboarding_profile: AppState.onboarding,
-        ode_accountability: {
-          tst_atmpt_cd: AppState.tstAtmptCd,
-          tst_valid_cd: AppState.tstValidCd,
-          total_items_attempted: AppState.totalItemsAttempted
-        },
-        metacognitive_delta: {
-          preferred_modality: pref,
-          empirical_accuracy: perfMap,
-          calibration_delta_pct: deltaCal,
-          misconception_tag: AppState.selectedMisconceptionTag,
-          retry_attempted: AppState.isomorphicRetryAttempted,
-          retry_correct: AppState.isomorphicRetryCorrect
-        },
-        responses: Array.from(AppState.attemptedItems.values()),
-        exported_at: new Date().toISOString()
-      };
-      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `sonar_math_delta_${AppState.sessionClientId.slice(0, 8)}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
+  document.getElementById('btn-export-results-json').addEventListener('click', () => {
+    const payload = {
+      session_id: AppState.sessionClientId,
+      assessment_code: '4TH_GRADE_FRACTIONS_V1',
+      target_grade: AppState.onboarding.selectedGrade,
+      onboarding_profile: AppState.onboarding,
+      score: totalScore,
+      total_items: 15,
+      ode_accountability: {
+        tst_atmpt_cd: AppState.tstAtmptCd,
+        tst_valid_cd: AppState.tstValidCd,
+        total_items_attempted: AppState.totalItemsAttempted
+      },
+      metacognitive_delta: {
+        preferred_modality: pref,
+        empirical_accuracy: perfMap,
+        calibration_delta_pct: deltaCal,
+        misconception_tag: AppState.selectedMisconceptionTag,
+        retry_attempted: AppState.isomorphicRetryAttempted,
+        retry_correct: AppState.isomorphicRetryCorrect
+      },
+      responses: Array.from(AppState.attemptedItems.values()),
+      exported_at: new Date().toISOString()
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `sonar_math_report_${AppState.sessionClientId.slice(0, 8)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+}
+
+// ============================================================================
+// 8. MISSED QUESTIONS REVIEWER & MODALITY EXPLAINERS
+// ============================================================================
+
+function renderMissedQuestionsList(items) {
+  const container = document.getElementById('missed-questions-list');
+  if (!container) return;
+  container.innerHTML = '';
+
+  items.forEach((item) => {
+    const qObj = QUESTIONS_SOURCE.find((q) => q.item_index === item.item_index) || QUESTIONS_SOURCE[0];
+    const card = document.createElement('div');
+    card.className = 'missed-question-card';
+
+    const statusBadge = item.is_correct 
+      ? '<span style="color:#10B981; font-weight:700; font-size:0.8rem;">✓ CORRECT</span>'
+      : '<span style="color:#F87171; font-weight:700; font-size:0.8rem;">✗ NEEDS REVIEW</span>';
+
+    card.innerHTML = `
+      <div class="missed-question-header">
+        <div>
+          <strong style="color: #38BDF8; font-size: 0.95rem;">Question ${item.item_index} (${qObj.modality.toUpperCase()})</strong>
+          <h4 style="color: #FFFFFF; font-size: 1.05rem; margin-top: 2px;">${item.prompt}</h4>
+        </div>
+        ${statusBadge}
+      </div>
+
+      <div class="answer-comparison-box">
+        <div><span style="color:#94A3B8;">Your Answer:</span> <strong style="color:${item.is_correct ? '#10B981' : '#F87171'};">${item.value || 'None'}</strong></div>
+        <div><span style="color:#94A3B8;">Target Answer:</span> <strong style="color:#38BDF8;">${qObj.correct_answer?.display_string || 'Target'}</strong></div>
+      </div>
+
+      <div>
+        <span style="font-size: 0.8rem; font-weight: 700; color: #94A3B8; text-transform: uppercase; margin-bottom: 8px; display: block;">
+          Understand Why (Choose an interactive training lens):
+        </span>
+        <div class="modality-explainer-row">
+          <button type="button" class="modality-pill-btn btn-discrete" data-qindex="${item.item_index}" data-modality="discrete" title="Learn via partitioned blocks and area models">
+            🟦 Discrete Area Lens
+          </button>
+          <button type="button" class="modality-pill-btn btn-continuous" data-qindex="${item.item_index}" data-modality="continuous" title="Learn via fluid volume and number line sliding">
+            🧪 Continuous Fluid Lens
+          </button>
+          <button type="button" class="modality-pill-btn btn-abstract" data-qindex="${item.item_index}" data-modality="abstract" title="Learn via math formulas and symbolic operations">
+            🔢 Abstract Equation Lens
+          </button>
+        </div>
+      </div>
+    `;
+
+    // Hook explainer buttons
+    card.querySelectorAll('.modality-pill-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const qIdx = parseInt(btn.getAttribute('data-qindex'), 10);
+        const mod = btn.getAttribute('data-modality');
+        openModalityExplanationModal(qIdx, mod);
+      });
     });
+
+    container.appendChild(card);
+  });
+}
+
+function openModalityExplanationModal(itemIndex, modality) {
+  const modal = document.getElementById('modality-explainer-modal');
+  const iconEl = document.getElementById('explainer-modal-icon');
+  const titleEl = document.getElementById('explainer-modal-title');
+  const bodyEl = document.getElementById('explainer-modal-body');
+
+  const q = QUESTIONS_SOURCE.find((item) => item.item_index === itemIndex) || QUESTIONS_SOURCE[0];
+  const explanation = getPedagogicalExplanation(q, modality);
+
+  iconEl.textContent = explanation.icon;
+  titleEl.textContent = `${explanation.modalityTitle}: Question ${itemIndex}`;
+  bodyEl.innerHTML = `
+    <div style="background: rgba(255,255,255,0.04); border-radius: 8px; padding: 14px; margin-bottom: 16px; border-left: 3px solid #38BDF8;">
+      <div style="font-size: 0.82rem; color: #94A3B8; text-transform: uppercase; font-weight: 700; margin-bottom: 4px;">Question Scenario</div>
+      <div style="color: #FFFFFF; font-size: 0.98rem; font-weight: 600; margin-bottom: 6px;">${q.prompt_text}</div>
+      <div style="font-size: 0.88rem; color: #10B981;">Target Answer: <strong>${q.correct_answer?.display_string}</strong></div>
+    </div>
+    <div style="line-height: 1.6; font-size: 0.95rem;">
+      ${explanation.contentHtml}
+    </div>
+  `;
+
+  modal.style.display = 'flex';
+}
+
+function getPedagogicalExplanation(q, modality) {
+  const targetStr = q.correct_answer.display_string;
+  const domain = q.seda_domain || '4.NF Standards';
+  const objective = q.pedagogical_objective || 'Fraction comprehension';
+
+  if (modality === 'discrete') {
+    return {
+      icon: '🟦',
+      modalityTitle: 'Discrete Area Grid Lens',
+      contentHtml: `
+        <p style="margin-bottom: 12px;">
+          <strong>Concept Focus:</strong> ${objective}
+        </p>
+        <p style="margin-bottom: 12px;">
+          In our <strong>Discrete Area Modality</strong>, fractions are represented as collections of identical, tangible units (such as square blocks or grid tiles).
+        </p>
+        <div style="padding: 14px; background: rgba(59, 130, 246, 0.12); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 6px; margin-bottom: 12px;">
+          <div style="color: #60A5FA; font-weight: 700; margin-bottom: 4px;">How to solve using blocks:</div>
+          <p style="margin: 0; color: #E2E8F0;">
+            1. Look at the total number of equal parts that make up 1 whole (the denominator).<br>
+            2. Count or shade exactly the required target parts (the numerator).<br>
+            3. For equivalence (e.g., 2/3 = 8/12), the shape of the shaded region takes up the same fraction of the total rectangular area: <strong>${targetStr}</strong>.
+          </p>
+        </div>
+        <p style="font-size: 0.88rem; color: #94A3B8;">
+          Standard Alignment: ${domain}. Discrete models train spatial awareness and part-to-whole decomposition.
+        </p>
+      `
+    };
+  } else if (modality === 'continuous') {
+    return {
+      icon: '🧪',
+      modalityTitle: 'Continuous Fluid & Slider Lens',
+      contentHtml: `
+        <p style="margin-bottom: 12px;">
+          <strong>Concept Focus:</strong> ${objective}
+        </p>
+        <p style="margin-bottom: 12px;">
+          In our <strong>Continuous Modality</strong>, fractions are continuous magnitudes—like liquid filling a graduated cylinder or a vehicle traveling along a number line.
+        </p>
+        <div style="padding: 14px; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 6px; margin-bottom: 12px;">
+          <div style="color: #34D399; font-weight: 700; margin-bottom: 4px;">How to solve using continuous measurement:</div>
+          <p style="margin: 0; color: #E2E8F0;">
+            1. Identify the capacity scale (e.g. 0 to 1, or 0 to 1,000 mL).<br>
+            2. Notice benchmark checkpoints: 1/4 (25%), 1/2 (50%), 3/4 (75%).<br>
+            3. The target <strong>${targetStr}</strong> corresponds to a precise physical position along the gradient, confirming value through measurement rather than counting separate items.
+          </p>
+        </div>
+        <p style="font-size: 0.88rem; color: #94A3B8;">
+          Standard Alignment: ${domain}. Continuous training prevents "whole number bias" by reinforcing that fractions represent single points on a continuum.
+        </p>
+      `
+    };
+  } else {
+    return {
+      icon: '🔢',
+      modalityTitle: 'Abstract Symbolic Equation Lens',
+      contentHtml: `
+        <p style="margin-bottom: 12px;">
+          <strong>Concept Focus:</strong> ${objective}
+        </p>
+        <p style="margin-bottom: 12px;">
+          In our <strong>Abstract Modality</strong>, fractions are computed using formal mathematical notation, arithmetic properties, and algebraic equivalence.
+        </p>
+        <div style="padding: 14px; background: rgba(168, 85, 247, 0.12); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 6px; margin-bottom: 12px;">
+          <div style="color: #C084FC; font-weight: 700; margin-bottom: 4px;">How to solve using symbolic equations:</div>
+          <p style="margin: 0; color: #E2E8F0;">
+            • <strong>Equivalence Principle:</strong> Multiplying or dividing numerator and denominator by the same non-zero factor preserves the fraction's value (a/b = a·k / b·k).<br>
+            • <strong>Addition/Subtraction:</strong> Like denominators allow direct operation on numerators (a/c ± b/c = (a ± b)/c).<br>
+            • Solving symbolically confirms that the exact value is <strong>${targetStr}</strong>.
+          </p>
+        </div>
+        <p style="font-size: 0.88rem; color: #94A3B8;">
+          Standard Alignment: ${domain}. Abstract manipulation establishes fluency for upper elementary algebra and standardized testing.
+        </p>
+      `
+    };
   }
 }
 
 // ============================================================================
-// 8. TELEMETRY HUD & CLOUD SYNC
+// 9. EDUCATOR & ADMIN RESULTS DASHBOARD ENGINE
+// ============================================================================
+
+function renderAdminDashboard() {
+  const sessions = JSON.parse(localStorage.getItem('sonar_assessment_sessions') || '[]');
+  const totalEl = document.getElementById('admin-stat-total-sessions');
+  const avgScoreEl = document.getElementById('admin-stat-avg-score');
+  const validRateEl = document.getElementById('admin-stat-valid-rate');
+  const latencyEl = document.getElementById('admin-stat-avg-latency');
+  const tbody = document.getElementById('admin-sessions-tbody');
+
+  totalEl.textContent = sessions.length;
+
+  if (sessions.length === 0) {
+    avgScoreEl.textContent = '--%';
+    validRateEl.textContent = '--%';
+    latencyEl.textContent = '-- ms';
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="8" style="text-align: center; color: #64748B; padding: 32px;">
+          No student assessment sessions recorded yet. Completed assessments will appear here automatically.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  // Calculate averages
+  let sumScore = 0;
+  let validCount = 0;
+  let sumLatency = 0;
+
+  sessions.forEach((s) => {
+    sumScore += s.accuracyPct || 0;
+    if (s.tstValidCd === 'Y') validCount++;
+    sumLatency += s.baselineLatencyMs || 0;
+  });
+
+  avgScoreEl.textContent = `${Math.round(sumScore / sessions.length)}%`;
+  validRateEl.textContent = `${Math.round((validCount / sessions.length) * 100)}%`;
+  latencyEl.textContent = `${Math.round(sumLatency / sessions.length)} ms`;
+
+  // Render Table Rows
+  tbody.innerHTML = '';
+  sessions.forEach((s, idx) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${s.timestamp}</td>
+      <td><span style="font-family:monospace; color:#38BDF8;">${s.sessionId.slice(0, 8)}</span></td>
+      <td>Grade ${s.grade || 4}</td>
+      <td style="text-transform:capitalize;">${s.preferredModality || 'discrete'}</td>
+      <td><strong>${s.score}/${s.totalItems || 15}</strong> (${s.accuracyPct}%)</td>
+      <td>
+        <span class="status-chip ${s.tstValidCd === 'Y' ? 'is-valid' : 'is-pending'}" style="font-size:0.75rem; padding:2px 8px;">
+          ${s.tstAtmptCd}: ${s.tstValidCd === 'Y' ? 'Valid' : 'Incomplete'}
+        </span>
+      </td>
+      <td><strong style="color:#A855F7;">${s.deltaCal >= 0 ? '+' : ''}${s.deltaCal}%</strong></td>
+      <td style="text-transform:uppercase;">${s.pointerType || 'touch'}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function exportSessionsToCsv() {
+  const sessions = JSON.parse(localStorage.getItem('sonar_assessment_sessions') || '[]');
+  if (sessions.length === 0) {
+    alert('No assessment sessions available to export.');
+    return;
+  }
+
+  let csv = 'Timestamp,Session_ID,Grade,Preferred_Modality,Score,Total_Items,Accuracy_Pct,TstAtmptCd,TstValidCd,Delta_Calibration_Pct,Baseline_Latency_Ms,Pointer_Type\n';
+
+  sessions.forEach((s) => {
+    csv += `"${s.timestamp}","${s.sessionId}",${s.grade},"${s.preferredModality}",${s.score},${s.totalItems},${s.accuracyPct},"${s.tstAtmptCd}","${s.tstValidCd}",${s.deltaCal},${s.baselineLatencyMs},"${s.pointerType}"\n`;
+  });
+
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `sonar_math_all_sessions_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function seedDemoClassroomData() {
+  const now = Date.now();
+  const demoSessions = [
+    {
+      sessionId: 'sess_or_4091a',
+      timestamp: new Date(now - 3600000 * 5).toLocaleString(),
+      grade: 4,
+      preferredModality: 'discrete',
+      theme: 'space',
+      score: 13,
+      totalItems: 15,
+      accuracyPct: 87,
+      tstAtmptCd: 'P',
+      tstValidCd: 'Y',
+      deltaCal: 12,
+      baselineLatencyMs: 310,
+      pointerType: 'touch',
+      responses: []
+    },
+    {
+      sessionId: 'sess_or_4092b',
+      timestamp: new Date(now - 3600000 * 3).toLocaleString(),
+      grade: 4,
+      preferredModality: 'continuous',
+      theme: 'ocean',
+      score: 11,
+      totalItems: 15,
+      accuracyPct: 73,
+      tstAtmptCd: 'P',
+      tstValidCd: 'Y',
+      deltaCal: -8,
+      baselineLatencyMs: 440,
+      pointerType: 'mouse',
+      responses: []
+    },
+    {
+      sessionId: 'sess_or_4093c',
+      timestamp: new Date(now - 3600000 * 1).toLocaleString(),
+      grade: 4,
+      preferredModality: 'abstract',
+      theme: 'culinary',
+      score: 14,
+      totalItems: 15,
+      accuracyPct: 93,
+      tstAtmptCd: 'P',
+      tstValidCd: 'Y',
+      deltaCal: 18,
+      baselineLatencyMs: 295,
+      pointerType: 'touch',
+      responses: []
+    }
+  ];
+  localStorage.setItem('sonar_assessment_sessions', JSON.stringify(demoSessions));
+  renderAdminDashboard();
+}
+
+// ============================================================================
+// 10. TELEMETRY HUD & CLOUD SYNC
 // ============================================================================
 
 function updateHUD() {
@@ -1277,7 +1671,7 @@ async function syncSessionToCloud() {
       body: JSON.stringify(payload)
     });
   } catch (err) {
-    console.warn('[CloudSync] Session save queued in IndexedDB:', err);
+    console.warn('[CloudSync] Session save queued:', err);
   }
 }
 
@@ -1314,16 +1708,16 @@ async function syncItemResponseToCloud(record) {
       renderQueueList();
     }
   } catch (err) {
-    console.warn('[CloudSync] Item queued in IndexedDB:', err);
+    console.warn('[CloudSync] Item queued:', err);
   }
 }
 
 // ============================================================================
-// 9. ONBOARDING & CALIBRATION INTERACTIVE CONTROLLERS
+// 11. INITIALIZATION & GLOBAL CONTROLS
 // ============================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
-  
+
   // 1. Passcode Gatekeeper
   const gateOverlay = document.getElementById('beta-gatekeeper-overlay');
   const gateForm = document.getElementById('form-beta-gate');
@@ -1351,7 +1745,55 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // 2. Screen 1: Grade Router
+  // 2. Navigation: Home Landing Page Buttons
+  document.getElementById('btn-landing-start-assessment').addEventListener('click', () => FSM.goToScreen(1));
+  document.getElementById('btn-landing-open-admin').addEventListener('click', () => FSM.goToScreen('admin'));
+
+  document.getElementById('btn-header-home').addEventListener('click', () => {
+    if (typeof AppState.currentScreenIndex === 'number' && AppState.currentScreenIndex >= 5 && AppState.currentScreenIndex <= 19) {
+      if (confirm('Are you sure you want to return to the Home page? Your current question progress is saved.')) {
+        FSM.goToScreen('home');
+      }
+    } else {
+      FSM.goToScreen('home');
+    }
+  });
+
+  const brandLogo = document.getElementById('brand-logo-trigger');
+  if (brandLogo) brandLogo.addEventListener('click', () => FSM.goToScreen('home'));
+
+  const brandTitle = document.getElementById('nav-brand-title');
+  if (brandTitle) brandTitle.addEventListener('click', () => FSM.goToScreen('home'));
+
+  // 3. Admin Portal Actions
+  document.getElementById('btn-admin-back-home').addEventListener('click', () => FSM.goToScreen('home'));
+  document.getElementById('btn-admin-export-csv').addEventListener('click', exportSessionsToCsv);
+  document.getElementById('btn-admin-export-json').addEventListener('click', () => {
+    const sessions = localStorage.getItem('sonar_assessment_sessions') || '[]';
+    const blob = new Blob([sessions], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `sonar_math_all_sessions_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById('btn-admin-clear-data').addEventListener('click', () => {
+    if (confirm('Are you sure you want to clear all stored assessment records? This action cannot be undone.')) {
+      localStorage.removeItem('sonar_assessment_sessions');
+      renderAdminDashboard();
+    }
+  });
+
+  const loadDemoBtn = document.getElementById('btn-admin-load-demo');
+  if (loadDemoBtn) {
+    loadDemoBtn.addEventListener('click', () => {
+      seedDemoClassroomData();
+    });
+  }
+
+  // 4. Screen 1: Grade Router
   document.querySelectorAll('#screen-1-grade .selection-card').forEach((card) => {
     card.addEventListener('click', () => {
       document.querySelectorAll('#screen-1-grade .selection-card').forEach((c) => c.classList.remove('is-selected'));
@@ -1359,9 +1801,10 @@ document.addEventListener('DOMContentLoaded', () => {
       AppState.onboarding.selectedGrade = parseInt(card.getAttribute('data-grade'), 10);
     });
   });
+  document.getElementById('btn-back-to-home-from-grade').addEventListener('click', () => FSM.goToScreen('home'));
   document.getElementById('btn-next-screen-1').addEventListener('click', () => FSM.goToScreen(2));
 
-  // 3. Screen 2: Modality Self-Perception
+  // 5. Screen 2: Modality Self-Perception
   document.querySelectorAll('#screen-2-modality .selection-card').forEach((card) => {
     card.addEventListener('click', () => {
       document.querySelectorAll('#screen-2-modality .selection-card').forEach((c) => c.classList.remove('is-selected'));
@@ -1372,7 +1815,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-back-screen-2').addEventListener('click', () => FSM.goToScreen(1));
   document.getElementById('btn-next-screen-2').addEventListener('click', () => FSM.goToScreen(3));
 
-  // 4. Screen 3: Behavioral Interest Theme
+  // 6. Screen 3: Behavioral Interest Theme
   document.querySelectorAll('#screen-3-theme .selection-card').forEach((card) => {
     card.addEventListener('click', () => {
       document.querySelectorAll('#screen-3-theme .selection-card').forEach((c) => c.classList.remove('is-selected'));
@@ -1383,7 +1826,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-back-screen-3').addEventListener('click', () => FSM.goToScreen(2));
   document.getElementById('btn-next-screen-3').addEventListener('click', () => FSM.goToScreen(4));
 
-  // 5. Screen 4: Sandbox Welcome & Pre-Test Device Calibration Check
+  // 7. Screen 4: Sandbox Welcome & Pre-Test Calibration Check
   const startDiagBtn = document.getElementById('btn-start-diagnostic');
   const chkInput = document.getElementById('chk-input-ready');
   const chkSound = document.getElementById('chk-sound-ready');
@@ -1415,64 +1858,47 @@ document.addEventListener('DOMContentLoaded', () => {
         chkLatency.classList.add('is-done');
         chkLatency.innerHTML = `<span class="checklist-icon">✓</span><span>Motor Baseline Latency: ${AppState.onboarding.baselineMotorLatencyMs} ms calibrated.</span>`;
         
-        checkCanStartDiagnostic();
+        startDiagBtn.disabled = false;
+        startDiagBtn.style.opacity = '1.0';
+        startDiagBtn.style.cursor = 'pointer';
+        startDiagBtn.classList.add('glow-button');
       }
     });
   });
 
-  const testVoiceBtn = document.getElementById('btn-cal-test-voice');
-  if (testVoiceBtn) {
-    testVoiceBtn.addEventListener('click', () => {
-      speakPromptAloud("Sound check complete! Welcome to Sonar Math. Your audio and screen are ready.");
-      AppState.onboarding.audioTested = true;
-      chkSound.classList.add('is-done');
-      chkSound.innerHTML = `<span class="checklist-icon">✓</span><span>Sound & Voice: Audio prompt synthesis verified.</span>`;
-      checkCanStartDiagnostic();
-    });
-  }
-
-  function checkCanStartDiagnostic() {
-    if (AppState.onboarding.calibrationPassed) {
-      startDiagBtn.disabled = false;
-      startDiagBtn.style.opacity = '1.0';
-      startDiagBtn.style.cursor = 'pointer';
-      startDiagBtn.classList.add('glow-button');
-    }
-  }
+  document.getElementById('btn-cal-test-voice').addEventListener('click', () => {
+    speakPromptAloud("Sound check complete! Welcome to Sonar Math. Your audio and screen are ready.");
+    AppState.onboarding.audioTested = true;
+    chkSound.classList.add('is-done');
+    chkSound.innerHTML = `<span class="checklist-icon">✓</span><span>Sound & Voice: Audio prompt synthesis verified.</span>`;
+  });
 
   startDiagBtn.addEventListener('click', () => FSM.goToScreen(5));
 
-  // 6. Audio Prompt Read-Aloud (Screens 5-19)
+  // 8. Question Screen Controls
   const mainReadAloudBtn = document.getElementById('btn-read-aloud');
   if (mainReadAloudBtn) {
     mainReadAloudBtn.addEventListener('click', () => {
       const q = QUESTIONS_SOURCE[AppState.activeQuestionIndex];
-      if (q) {
-        speakPromptAloud(`${q.prompt_text}. ${q.sub_text || ''}`);
-      }
+      if (q) speakPromptAloud(`${q.prompt_text}. ${q.sub_text || ''}`);
     });
   }
 
-  // 7. Reset and Submit Buttons
   document.getElementById('btn-reset-manipulative').addEventListener('click', () => {
     mountDiagnosticQuestion(AppState.activeQuestionIndex);
   });
   document.getElementById('btn-submit-answer').addEventListener('click', submitCurrentQuestion);
 
-  // 8. Secret Researcher Mode Toggle (Locked from students)
-  // Activated by pressing F2, or triple-clicking the brand logo
-  let logoClicks = 0;
-  const brandLogo = document.getElementById('brand-logo-trigger');
-  if (brandLogo) {
-    brandLogo.addEventListener('click', () => {
-      logoClicks++;
-      if (logoClicks >= 3) {
-        toggleResearcherMode();
-        logoClicks = 0;
-      }
-    });
-  }
+  // 9. Modality Explainer Modal Close
+  const explainerModal = document.getElementById('modality-explainer-modal');
+  document.getElementById('btn-close-explainer-modal').addEventListener('click', () => {
+    explainerModal.style.display = 'none';
+  });
+  document.getElementById('btn-dismiss-explainer-modal').addEventListener('click', () => {
+    explainerModal.style.display = 'none';
+  });
 
+  // 10. Researcher Mode Secret Key
   window.addEventListener('keydown', (e) => {
     if (e.key === 'F2' || (e.ctrlKey && e.shiftKey && e.key === 'D')) {
       e.preventDefault();
@@ -1486,22 +1912,18 @@ document.addEventListener('DOMContentLoaded', () => {
   function toggleResearcherMode() {
     AppState.isDevMode = !AppState.isDevMode;
     const body = document.body;
-    const navBar = document.getElementById('item-nav-bar');
     const label = document.getElementById('mode-label');
 
     if (AppState.isDevMode) {
       body.classList.remove('student-mode');
-      if (navBar) navBar.style.display = 'block';
       if (label) label.textContent = 'Student Mode';
-      console.log('[DevMode] Researcher HUD enabled.');
     } else {
       body.classList.add('student-mode');
-      if (navBar) navBar.style.display = 'none';
       if (label) label.textContent = 'Researcher HUD';
     }
     renderODEState();
   }
 
-  // Start at Screen 1
-  FSM.goToScreen(1);
+  // Start on Home Landing Page
+  FSM.goToScreen('home');
 });
