@@ -46,9 +46,17 @@ To prevent false cognitive diagnoses, the platform captures client environment t
 * `device_memory_gb` (`navigator.deviceMemory`).
 * `user_agent` (`navigator.userAgent`).
 
-When SEDA or state analysts examine `latency_ms` and `first_interaction_ms`, sessions from underpowered hardware ($< 4$ cores or $< 4\text{ GB RAM}$) can be normalized or isolated from core psychometric models.
+### 2.4 Offline-First Architecture & ODE 5-Item Validity Protection
+In home testing environments, Wi-Fi drops, ISP router renewals, and captive portals are common failure modes. If a home router blips during Question 4:
+* **Write-Ahead IndexedDB Storage:** The frontend treats the browser's native IndexedDB (`sonar_math_offline_cache`) as the immediate primary source of truth. Every answer, high-resolution timer (`performance.now()`), and interaction trajectory is written and committed to local disk *before* triggering any network dispatch.
+* **ODE State Accountability Guarantee:** The Oregon Department of Education invalidates assessments with fewer than 5 attempted items. Under our offline architecture, a student who completes Items 1 through 5 while completely disconnected has their session mathematically protected:
+  $$\text{Client State: } \text{total\_items\_attempted} = 5 \implies \text{ode\_validity\_cleared} = \text{true}$$
+* **Self-Healing Background Auto-Sync:**
+  1. `OfflineSyncManager` listens to `window.online` and performs heartbeat connectivity probes.
+  2. Once internet routing is restored, an exponential backoff engine with jitter flushes the queued responses in chronological sequence.
+  3. Responses are tagged with `sync_source: 'offline_indexeddb_replay'`, maintaining compliance auditability.
+  4. Database idempotent constraints (`uq_session_item`) prevent duplicate insertions on reconnection retries.
 
----
 
 ## 3. Dual-Schema Database Architecture
 
