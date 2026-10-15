@@ -1,12 +1,14 @@
 /**
- * Database Types: Sonar Math MVP
+ * Database Types: Sonar Math MVP (Web-First Multi-Device Architecture)
  * 
  * Strict COPPA Zero-Knowledge Boundary:
  * - `vault`: PII, COPPA consent records, student demographic profiles (supporting inclusive gender codes).
  * - `telemetry`: Ephemeral diagnostic session and micro-telemetry response data.
  * 
- * Note: Under COPPA (16 CFR Part 312) & FERPA compliance standards, no join relationships exist 
- * between the `vault` and `telemetry` schemas.
+ * Multi-Device Web Support:
+ * - Unified Pointer Events (mouse, touch, stylus)
+ * - Hardware profiling (userAgent, resolution, DPR, deviceMemory, concurrency)
+ * - Screen-invariant normalized coordinates (0.0 to 1.0) with ±2% snap tolerance
  */
 
 export type Json =
@@ -85,10 +87,10 @@ export type SessionStatus =
   | 'abandoned'
   | 'invalidated';
 
-export type DeviceCategory = 'tablet' | 'desktop' | 'mobile' | 'unknown';
-
+export type PrimaryInputType = 'mouse' | 'touch' | 'stylus' | 'trackpad' | 'unknown';
+export type DeviceCategory = 'desktop' | 'tablet' | 'mobile' | 'unknown';
+export type PointerType = 'mouse' | 'touch' | 'pen' | 'unknown';
 export type SyncSource = 'online_realtime' | 'offline_indexeddb_replay';
-
 export type DiagnosticModality = 'discrete' | 'continuous' | 'abstract';
 
 export type MechanicType =
@@ -98,15 +100,29 @@ export type MechanicType =
   | 'multiple_choice'
   | 'numeric_fraction_input';
 
+/**
+ * Normalized payload for Continuous Fluid Canvas (Graduated Cylinder):
+ * - All ratios are normalized (0.0 to 1.0) so they are invariant to screen resolution
+ * - Snap tolerance is ±0.02 (±2%) in normalized volume space
+ */
 export interface GraduatedCylinderAnswerPayload {
-  target_volume_ml: number;
+  target_fraction_numerator: number;
+  target_fraction_denominator: number;
+  target_ratio: number; // e.g. 0.75 for 3/4
+  poured_ratio: number; // normalized between 0.0 and 1.0
   poured_volume_ml: number;
-  fill_ratio: number; // e.g. 0.75 for 3/4
+  max_capacity_ml: number;
   snap_applied: boolean;
-  raw_pour_ratio: number;
+  snap_tolerance: number; // default 0.02 (±2%)
+  raw_drag_distance_ratio: number;
 }
 
+/**
+ * Normalized payload for Discrete Unit Block Grid
+ */
 export interface UnitBlockGridAnswerPayload {
+  grid_rows: number;
+  grid_columns: number;
   total_cells: number;
   highlighted_cells: number[];
   crossed_out_cells?: number[];
@@ -126,9 +142,11 @@ export type RawAnswerPayload =
 export interface MicroInteractionEvent {
   timestamp_ms: number;
   event_type: 'pointerdown' | 'pointermove' | 'pointerup' | 'snap_trigger' | 'reset';
-  x?: number;
-  y?: number;
-  value?: number;
+  pointer_type: PointerType;
+  /** Normalized coordinate in virtual canvas bounds (0.0 to 1.0) */
+  norm_x?: number;
+  norm_y?: number;
+  norm_value?: number;
   friction_flag?: boolean;
 }
 
@@ -140,13 +158,27 @@ export interface DiagnosticSessionRecord {
   started_at: string;
   completed_at?: string | null;
   session_status: SessionStatus;
+  
   /** Total attempted items (ODE requirement: assessments < 5 items are invalidated) */
   total_items_attempted: number;
   ode_validity_cleared: boolean;
+  
+  // Hardware & Input Profiling (Isolates device latency from student cognitive friction)
+  primary_input_type: PrimaryInputType;
   device_category: DeviceCategory;
+  pointer_coarse?: boolean | null;
+  hover_capable?: boolean | null;
+  
+  screen_width?: number | null;
+  screen_height?: number | null;
   viewport_width?: number | null;
   viewport_height?: number | null;
+  device_pixel_ratio?: number | null;
+  
+  hardware_concurrency?: number | null;
+  device_memory_gb?: number | null;
   user_agent?: string | null;
+  
   sync_source: SyncSource;
   created_at: string;
 }
@@ -161,12 +193,16 @@ export interface ItemResponseRecord {
   prompt_key: string;
   raw_answer: RawAnswerPayload;
   is_correct: boolean;
+  
   /** High precision latency from item mount to first user input (ms) */
   first_interaction_ms: number;
   /** Total item completion latency from mount to submission (ms) */
   latency_ms: number;
+  
+  input_pointer_type: PointerType;
   friction_events_count: number;
   micro_interactions_log?: MicroInteractionEvent[] | null;
+  
   submitted_at: string;
   synced_at: string;
 }
@@ -248,6 +284,7 @@ export interface OfflineQueuedItemResponse {
   is_correct: boolean;
   first_interaction_ms: number;
   latency_ms: number;
+  input_pointer_type: PointerType;
   friction_events_count: number;
   micro_interactions_log?: MicroInteractionEvent[];
   client_timestamp: number;

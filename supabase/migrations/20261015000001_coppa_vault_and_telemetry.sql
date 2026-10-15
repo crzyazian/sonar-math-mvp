@@ -1,20 +1,22 @@
 -- ============================================================================
 -- MIGRATION: 20261015000001_coppa_vault_and_telemetry.sql
--- PROJECT: Sonar Math MVP (K-8 Diagnostic Platform)
+-- PROJECT: Sonar Math MVP (K-8 Diagnostic Platform - Web First)
 --
 -- PURPOSE:
 -- Establishes a strict two-schema architectural boundary:
 -- 1. `vault`: PII, COPPA consent records, student demographics (with non-binary & inclusive gender codes).
 -- 2. `telemetry`: Ephemeral diagnostic session telemetry and granular item responses.
 --
+-- MULTI-DEVICE & HARDWARE TELEMETRY:
+-- Supports cross-platform web deployment (desktops, 11" tablets, Chromebooks, 27" monitors):
+-- - Unified Pointer Events (`mouse`, `touch`, `stylus`).
+-- - Hardware profiling (userAgent, resolution, DPR, concurrency, memory) to isolate
+--   hardware lag from true cognitive processing friction.
+--
 -- STRICT COPPA ZERO-KNOWLEDGE ISOLATION:
--- By architectural design and regulatory compliance (COPPA 16 CFR Part 312 & FERPA):
 -- - The `telemetry` schema NEVER references or joins with tables in the `vault` schema.
 -- - No Foreign Keys exist across the boundary.
 -- - Diagnostic sessions operate exclusively on ephemeral UUID tokens (`session_id`).
--- - Telemetry data retains no direct linkage to student PII, allowing safe analytics,
---   SEDA modeling, and Oregon Department of Education (ODE) cohort reporting without
---   exposing child identity.
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
@@ -55,7 +57,6 @@ CREATE TABLE vault.parents (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
 );
 
--- Index for parent lookup by email
 CREATE INDEX idx_vault_parents_email ON vault.parents(email);
 CREATE INDEX idx_vault_parents_consent_status ON vault.parents(consent_status);
 
@@ -93,10 +94,10 @@ CREATE INDEX idx_vault_students_district ON vault.students(state_district_id);
 -- 3. TELEMETRY SCHEMA (ZERO-KNOWLEDGE EPHEMERAL ASSESSMENT ENGINE)
 -- ----------------------------------------------------------------------------
 
--- 3.1 Diagnostic Sessions
+-- 3.1 Diagnostic Sessions (with Hardware & Input Profiling)
 CREATE TABLE telemetry.diagnostic_sessions (
     session_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    -- Client-generated idempotency token (from tablet/IndexedDB offline queue)
+    -- Client-generated idempotency token (from browser IndexedDB offline queue)
     client_generated_id UUID NOT NULL UNIQUE,
     assessment_code TEXT NOT NULL DEFAULT '4TH_GRADE_FRACTIONS_V1',
     target_grade SMALLINT NOT NULL DEFAULT 4,
@@ -115,10 +116,22 @@ CREATE TABLE telemetry.diagnostic_sessions (
     total_items_attempted SMALLINT NOT NULL DEFAULT 0,
     ode_validity_cleared BOOLEAN NOT NULL DEFAULT false,
     
-    -- Device context for touch-target telemetry and motor-skill calibration
-    device_category TEXT CHECK (device_category IN ('tablet', 'desktop', 'mobile', 'unknown')) DEFAULT 'tablet',
+    -- Hardware & Input Modality Telemetry (Disambiguating cognitive friction from device lag)
+    primary_input_type TEXT CHECK (primary_input_type IN ('mouse', 'touch', 'stylus', 'trackpad', 'unknown')) DEFAULT 'unknown',
+    device_category TEXT CHECK (device_category IN ('desktop', 'tablet', 'mobile', 'unknown')) DEFAULT 'unknown',
+    pointer_coarse BOOLEAN, -- window.matchMedia('(pointer: coarse)').matches
+    hover_capable BOOLEAN,  -- window.matchMedia('(hover: hover)').matches
+    
+    -- Screen, Viewport & Pixel Density Dimensions
+    screen_width INT,
+    screen_height INT,
     viewport_width INT,
     viewport_height INT,
+    device_pixel_ratio NUMERIC(4, 2) DEFAULT 1.0,
+    
+    -- Client Capabilities
+    hardware_concurrency SMALLINT, -- navigator.hardwareConcurrency
+    device_memory_gb NUMERIC(4, 1), -- navigator.deviceMemory
     user_agent TEXT,
     
     -- Network synchronization mode
@@ -129,6 +142,7 @@ CREATE TABLE telemetry.diagnostic_sessions (
 CREATE INDEX idx_telemetry_sessions_client_id ON telemetry.diagnostic_sessions(client_generated_id);
 CREATE INDEX idx_telemetry_sessions_status ON telemetry.diagnostic_sessions(session_status);
 CREATE INDEX idx_telemetry_sessions_ode_validity ON telemetry.diagnostic_sessions(ode_validity_cleared);
+CREATE INDEX idx_telemetry_sessions_input_type ON telemetry.diagnostic_sessions(primary_input_type);
 
 -- 3.2 Item Responses & Micro-Telemetry
 CREATE TABLE telemetry.item_responses (
@@ -148,13 +162,16 @@ CREATE TABLE telemetry.item_responses (
     )),
     prompt_key TEXT NOT NULL,
     
-    -- Response payloads
+    -- Response payloads (normalized coordinates invariant to screen size)
     raw_answer JSONB NOT NULL,
     is_correct BOOLEAN NOT NULL,
     
     -- High-precision micro-telemetry (performance.now timings from client)
     first_interaction_ms NUMERIC(10, 2) NOT NULL,
     latency_ms NUMERIC(10, 2) NOT NULL,
+    
+    -- Input mechanism used for this specific item ('touch', 'mouse', 'pen')
+    input_pointer_type TEXT CHECK (input_pointer_type IN ('mouse', 'touch', 'pen', 'unknown')) DEFAULT 'unknown',
     
     -- Motor-skill vs cognitive error friction markers (e.g. cylinder snap corrections)
     friction_events_count SMALLINT NOT NULL DEFAULT 0,
@@ -174,7 +191,6 @@ CREATE INDEX idx_telemetry_items_correctness ON telemetry.item_responses(is_corr
 -- ----------------------------------------------------------------------------
 -- 4. AUTOMATED ODE STATE ACCOUNTABILITY TRIGGER
 -- ----------------------------------------------------------------------------
--- Automatically updates total_items_attempted and clears ODE validity threshold (>= 5 items)
 CREATE OR REPLACE FUNCTION telemetry.update_session_attemptedness_and_ode_validity()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -213,7 +229,6 @@ ALTER TABLE vault.students ENABLE ROW LEVEL SECURITY;
 ALTER TABLE telemetry.diagnostic_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE telemetry.item_responses ENABLE ROW LEVEL SECURITY;
 
--- Telemetry policy: Anonymous client sessions can insert and sync their own session data
 CREATE POLICY "Allow anonymous telemetry session creation"
 ON telemetry.diagnostic_sessions
 FOR INSERT
@@ -234,7 +249,6 @@ ON telemetry.item_responses
 FOR SELECT
 USING (true);
 
--- Vault policies: Restricted to authenticated parents for their own children
 CREATE POLICY "Parents can view and update their own record"
 ON vault.parents
 FOR ALL
