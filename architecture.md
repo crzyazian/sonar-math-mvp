@@ -160,9 +160,37 @@ The interactive UI components have been built and verified in a live browser tes
 * Served locally at `http://127.0.0.1:8080/index.html`.
 * Tested end-to-end via automated browser subagent: verified graduated cylinder pouring, 2% snap locking, discrete unit grid shading, home Wi-Fi dropout simulation, and live state transition to `TstAtmptCd: 'P'`, `TstValidCd: 'Y'` upon submitting 5 items.
 
+## 7. Zero-Pressure Student Experience & Metacognitive Beta Loop
+
+A critical finding for K-8 diagnostic psychometrics is that **visible timers, ticking latencies, and real-time correctness badges induce test anxiety**, skewing student performance and inflating false hesitation markers.
+
+### 7.1 Separation of Student View vs Researcher HUD
+* **Default Student View:**
+  * Clean, calming, uncluttered interface focused purely on the math problem and manipulative.
+  * Ticking millisecond timers (`performance.now()`), latency figures, and friction markers run **100% silently in the background**.
+  * No live "Adjusting / Correct" evaluation indicators while interacting, preventing children from being guided to answers without understanding.
+  * Status chip remains calm and unobtrusive (`● Saved`) rather than displaying intimidating state compliance warnings.
+* **Researcher / Proctor HUD (Dev Mode):**
+  * Toggled via header button or key shortcut.
+  * Expands live telemetry metrics: first touch latency, active item timer, input modality (`TOUCH`, `MOUSE`, `PEN`), magnetic snap state ($\pm 2\%$), friction markers, and the IndexedDB write-ahead queue.
+
+### 7.2 Post-Assessment Metacognitive Reflection & Isomorphic Retry
+At the conclusion of the beta diagnostic (Item 5 clearance or Item 15 completion), the platform transitions to a celebratory, encouraging review module:
+1. **Qualitative Misconception Tagging (Beta Goldmine):**
+   * Students are presented with an encouraging prompt: *"Let's Reflect: What made this problem tricky for you?"*
+   * Child-friendly reflection chips capture essential qualitative signals:
+     * `🖐️ My finger slipped while dragging`: Crucial for disambiguating UI/motor errors from true mathematical misconceptions.
+     * `⚖️ The bottom fraction numbers were confusing`: Confirms conceptual denominator confusion (CCSS 4.NF).
+     * `📖 I wasn't sure what the question asked`: Highlights language or cognitive load friction.
+     * `🎲 I made a lucky/unlucky guess`: Identifies guessing behavior.
+2. **Dynamic Isomorphic Retry ("Second Chance"):**
+   * Presents an isomorphic question testing the exact same mathematical standard with fresh numbers (e.g. Q1 was $\frac{3}{4}$ of $1000\text{ mL}$, retry presents $\frac{4}{5}$ of $1000\text{ mL}$).
+   * Evaluates whether immediate re-engagement demonstrates mastery.
+   * Feedback and retry results are appended directly to the offline IndexedDB payload as `metacognitive_feedback` JSONB for researcher analysis.
+
 ---
 
-## 7. Implementation Roadmap
+## 8. Implementation Roadmap
 
 | Milestone | Deliverable | Status |
 | :--- | :--- | :--- |
@@ -172,17 +200,19 @@ The interactive UI components have been built and verified in a live browser tes
 | **Task 1** | TypeScript Data Contracts & IndexedDB Write-Ahead Cache | **Complete** (`src/services/storage/`) |
 | **Task 2** | Immutable Question Engine (`questions.json`, 15 items, 3 phases) | **Complete** (`src/data/questions.json`) |
 | **Task 3** | Responsive Manipulative UI (Pointer Events, Continuous & Discrete) | **Complete** (Commit `c47cc20`) |
-| **Task 4** | Micro-Telemetry Listener & Offline IndexedDB Replay Queue | **Ready to Execute** |
+| **Task 4** | Zero-Pressure Student Mode & Metacognitive Reflection Loop | **Complete** (Commit `13f28fd`) |
+| **Task 4** | Micro-Telemetry Listener & Offline IndexedDB Replay Queue | **Complete & Verified** |
 
 ---
 
-## 8. Artifact & File Directory
+## 9. Artifact & File Directory
 - Migration DDL: [`supabase/migrations/20261015000001_coppa_vault_and_telemetry.sql`](file:///C:/Users/Workstation/.gemini/antigravity-ide/scratch/sonar-math-mvp/supabase/migrations/20261015000001_coppa_vault_and_telemetry.sql)
 - Database Typings: [`types/database.types.ts`](file:///C:/Users/Workstation/.gemini/antigravity-ide/scratch/sonar-math-mvp/types/database.types.ts)
 - Question Schema: [`src/schemas/question.schema.ts`](file:///C:/Users/Workstation/.gemini/antigravity-ide/scratch/sonar-math-mvp/src/schemas/question.schema.ts)
 - Question Data: [`src/data/questions.json`](file:///C:/Users/Workstation/.gemini/antigravity-ide/scratch/sonar-math-mvp/src/data/questions.json)
 - Continuous Manipulative: [`src/components/GraduatedCylinderCanvas.ts`](file:///C:/Users/Workstation/.gemini/antigravity-ide/scratch/sonar-math-mvp/src/components/GraduatedCylinderCanvas.ts)
 - Discrete Manipulative: [`src/components/DiscreteBlockGrid.ts`](file:///C:/Users/Workstation/.gemini/antigravity-ide/scratch/sonar-math-mvp/src/components/DiscreteBlockGrid.ts)
+- Storage & Sync Engine: [`src/services/storage/`](file:///C:/Users/Workstation/.gemini/antigravity-ide/scratch/sonar-math-mvp/src/services/storage/)
 - Live Sandbox: [`public/index.html`](file:///C:/Users/Workstation/.gemini/antigravity-ide/scratch/sonar-math-mvp/public/index.html)
 - Sandbox Application Logic: [`public/app.js`](file:///C:/Users/Workstation/.gemini/antigravity-ide/scratch/sonar-math-mvp/public/app.js)
 - System Architecture: [`architecture.md`](file:///C:/Users/Workstation/.gemini/antigravity-ide/scratch/sonar-math-mvp/architecture.md)
