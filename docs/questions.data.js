@@ -12,7 +12,7 @@ window.SONAR_QUESTIONS = {
       "modality": "continuous",
       "mechanic_type": "graduated_cylinder_pour",
       "prompt_text": "Pour water into the container until it is 3/4 full.",
-      "sub_text": "Drag up to fill the water. Let go when it reaches 3/4.",
+      "sub_text": "Drag the handle to fill the water. It will snap to each fraction line.",
       "correct_answer": {
         "display_string": "3/4",
         "normalized_value": 0.75,
@@ -26,17 +26,18 @@ window.SONAR_QUESTIONS = {
         "type": "graduated_cylinder_pour",
         "config": {
           "max_capacity_ml": 1000,
-          "tick_interval_ml": 50,
+          "tick_interval_ml": 250,
           "major_ticks": [0, 250, 500, 750, 1000],
+          "tick_fraction_labels": ["0", "1/4", "2/4", "3/4", "1 (Full)"],
           "target_volume_ml": 750,
           "target_ratio": 0.75,
           "target_fraction": {
             "numerator": 3,
             "denominator": 4
           },
-          "snap_tolerance_ratio": 0.02,
+          "snap_tolerance_ratio": 0.05,
           "liquid_color": "#2563EB",
-          "unit_label": "mL"
+          "unit_label": "fraction"
         }
       },
       "seda_domain": "4.NF.A (Equivalence)",
@@ -47,7 +48,7 @@ window.SONAR_QUESTIONS = {
       "target_phase": 1,
       "modality": "discrete",
       "mechanic_type": "unit_block_grid",
-      "prompt_text": "Shade blocks to show 2/3 of the rectangle.",
+      "prompt_text": "Click the number of boxes to make 2/3 of the rectangle.",
       "sub_text": "Tap the boxes to color them in.",
       "correct_answer": {
         "display_string": "8/12 (equivalent to 2/3)",
@@ -82,7 +83,7 @@ window.SONAR_QUESTIONS = {
       "modality": "continuous",
       "mechanic_type": "number_line_slider",
       "prompt_text": "Slide the dot to 5/8 on the number line.",
-      "sub_text": "Move the slider between 0 and 1.",
+      "sub_text": "Move the slider to 5/8.",
       "correct_answer": {
         "display_string": "5/8",
         "normalized_value": 0.625,
@@ -106,7 +107,7 @@ window.SONAR_QUESTIONS = {
             "denominator": 8
           },
           "target_decimal": 0.625,
-          "snap_tolerance": 0.02
+          "snap_tolerance": 0.04
         }
       },
       "seda_domain": "4.NF.A (Equivalence)",
@@ -117,8 +118,8 @@ window.SONAR_QUESTIONS = {
       "target_phase": 1,
       "modality": "discrete",
       "mechanic_type": "unit_block_grid",
-      "prompt_text": "Start with 1 whole bar (10 blocks). Cross out 3/10.",
-      "sub_text": "Tap blocks to put an X on them. How many are left?",
+      "prompt_text": "Solve: 1 - 3/10",
+      "sub_text": "Cross out 3 blocks to subtract 3/10 and find how many are left.",
       "correct_answer": {
         "display_string": "7/10",
         "normalized_value": 0.7,
@@ -151,7 +152,7 @@ window.SONAR_QUESTIONS = {
       "target_phase": 1,
       "modality": "abstract",
       "mechanic_type": "multiple_choice",
-      "prompt_text": "Which fraction is equal to 2/4?",
+      "prompt_text": "Which fraction is equal to 2/4 in its simplest (reduced) form?",
       "sub_text": "Choose the best answer.",
       "correct_answer": {
         "display_string": "1/2",
@@ -214,7 +215,7 @@ window.SONAR_QUESTIONS = {
       "modality": "continuous",
       "mechanic_type": "graduated_cylinder_pour",
       "prompt_text": "Add the two liquids: pour 1/6 + 3/6 into the container.",
-      "sub_text": "Add the fractions together and fill the water.",
+      "sub_text": "Drag the water level up to the total fraction.",
       "correct_answer": {
         "display_string": "4/6 (or 2/3)",
         "normalized_value": 0.6667,
@@ -228,17 +229,18 @@ window.SONAR_QUESTIONS = {
         "type": "graduated_cylinder_pour",
         "config": {
           "max_capacity_ml": 600,
-          "tick_interval_ml": 50,
+          "tick_interval_ml": 100,
           "major_ticks": [0, 100, 200, 300, 400, 500, 600],
+          "tick_fraction_labels": ["0", "1/6", "2/6", "3/6", "4/6", "5/6", "1 (Full)"],
           "target_volume_ml": 400,
           "target_ratio": 0.6667,
           "target_fraction": {
             "numerator": 4,
             "denominator": 6
           },
-          "snap_tolerance_ratio": 0.02,
+          "snap_tolerance_ratio": 0.05,
           "liquid_color": "#0D9488",
-          "unit_label": "mL"
+          "unit_label": "fraction"
         }
       },
       "seda_domain": "4.NF.B (Operations)",
@@ -249,8 +251,8 @@ window.SONAR_QUESTIONS = {
       "target_phase": 2,
       "modality": "discrete",
       "mechanic_type": "unit_block_grid",
-      "prompt_text": "Solve 7/8 - 3/8 on the bar.",
-      "sub_text": "Cross out 3 of the shaded blocks to find what is left.",
+      "prompt_text": "Click the number of blocks that shows the answer to 7/8 - 3/8.",
+      "sub_text": "Tap the blocks to color in the answer (4/8 or reduced as 1/2).",
       "correct_answer": {
         "display_string": "4/8 (or 1/2)",
         "normalized_value": 0.5,
@@ -271,8 +273,8 @@ window.SONAR_QUESTIONS = {
             "denominator": 8
           },
           "target_cell_count": 4,
-          "action_mode": "cross_out",
-          "initial_highlighted_cells": [0, 1, 2, 3, 4, 5, 6]
+          "action_mode": "select_and_shade",
+          "initial_highlighted_cells": []
         }
       },
       "seda_domain": "4.NF.B (Operations)",
@@ -284,7 +286,7 @@ window.SONAR_QUESTIONS = {
       "modality": "abstract",
       "mechanic_type": "numeric_fraction_input",
       "prompt_text": "Add: 4/12 + 5/12 = ?",
-      "sub_text": "Type the top number (numerator) and bottom number (denominator).",
+      "sub_text": "Type your answer as a fraction (9/12 or in reduced form as 3/4).",
       "correct_answer": {
         "display_string": "9/12 (or 3/4)",
         "normalized_value": 0.75,
@@ -308,10 +310,10 @@ window.SONAR_QUESTIONS = {
     {
       "item_index": 9,
       "target_phase": 2,
-      "modality": "continuous",
-      "mechanic_type": "number_line_slider",
-      "prompt_text": "Find 1 1/4 on the number line.",
-      "sub_text": "Slide the dot past 1 to 1 1/4.",
+      "modality": "abstract",
+      "mechanic_type": "numeric_fraction_input",
+      "prompt_text": "Write 5/4 as a mixed number.",
+      "sub_text": "Type the whole number and fraction (example: 1 1/4).",
       "correct_answer": {
         "display_string": "1 1/4 (or 5/4)",
         "normalized_value": 1.25,
@@ -319,28 +321,20 @@ window.SONAR_QUESTIONS = {
           "whole": 1,
           "numerator": 1,
           "denominator": 4
-        },
-        "acceptable_margin": 0.02
+        }
       },
       "mechanic_payload": {
-        "type": "number_line_slider",
+        "type": "numeric_fraction_input",
         "config": {
-          "min_value": 0.0,
-          "max_value": 2.0,
-          "step_fraction": {
-            "numerator": 1,
-            "denominator": 4
-          },
-          "target_fraction": {
-            "numerator": 5,
-            "denominator": 4
-          },
-          "target_decimal": 1.25,
-          "snap_tolerance": 0.02
+          "require_simplified": false,
+          "allow_mixed_number": true,
+          "target_whole": 1,
+          "target_numerator": 1,
+          "target_denominator": 4
         }
       },
       "seda_domain": "4.NF.B (Operations)",
-      "pedagogical_objective": "Recognizing mixed numbers beyond the unit interval on a continuous continuum."
+      "pedagogical_objective": "Recognizing mixed numbers beyond the unit interval."
     },
     {
       "item_index": 10,
@@ -410,7 +404,7 @@ window.SONAR_QUESTIONS = {
       "modality": "discrete",
       "mechanic_type": "unit_block_grid",
       "prompt_text": "Show 3 groups of 2/6 using the blocks.",
-      "sub_text": "Color in the blocks to show 3 times 2/6.",
+      "sub_text": "Color in the blocks to show 3 times 2/6 (6/6 or 1 whole).",
       "correct_answer": {
         "display_string": "6/6 (1 whole)",
         "normalized_value": 1.0,
@@ -458,17 +452,18 @@ window.SONAR_QUESTIONS = {
         "type": "graduated_cylinder_pour",
         "config": {
           "max_capacity_ml": 1000,
-          "tick_interval_ml": 50,
+          "tick_interval_ml": 200,
           "major_ticks": [0, 200, 400, 600, 800, 1000],
+          "tick_fraction_labels": ["0", "1/5", "2/5", "3/5", "4/5", "1 (Full)"],
           "target_volume_ml": 800,
           "target_ratio": 0.8,
           "target_fraction": {
             "numerator": 4,
             "denominator": 5
           },
-          "snap_tolerance_ratio": 0.02,
+          "snap_tolerance_ratio": 0.05,
           "liquid_color": "#7C3AED",
-          "unit_label": "mL"
+          "unit_label": "fraction"
         }
       },
       "seda_domain": "4.NF.B (Operations)",
@@ -479,10 +474,10 @@ window.SONAR_QUESTIONS = {
       "target_phase": 3,
       "modality": "abstract",
       "mechanic_type": "numeric_fraction_input",
-      "prompt_text": "Multiply: 5 x 2/3. Write your answer as a fraction.",
-      "sub_text": "Type the top number and bottom number.",
+      "prompt_text": "Multiply: 5 x 2/3",
+      "sub_text": "Type your answer as an improper fraction (10/3) or as a mixed number (3 1/3).",
       "correct_answer": {
-        "display_string": "10/3",
+        "display_string": "10/3 or 3 1/3",
         "normalized_value": 3.3333,
         "fraction": {
           "numerator": 10,
@@ -500,7 +495,7 @@ window.SONAR_QUESTIONS = {
         }
       },
       "seda_domain": "4.NF.B (Operations)",
-      "pedagogical_objective": "Symbolic computation multiplying whole numbers by non-unit fractions (5 x 2/3 = 10/3)."
+      "pedagogical_objective": "Symbolic computation multiplying whole numbers by non-unit fractions (5 x 2/3 = 10/3 or 3 1/3)."
     },
     {
       "item_index": 14,
@@ -510,18 +505,18 @@ window.SONAR_QUESTIONS = {
       "prompt_text": "Which fraction is bigger: 3/4 or 5/6? Slide the dot to the GREATER fraction.",
       "sub_text": "Move the slider to the fraction that is greater.",
       "correct_answer": {
-        "display_string": "5/6 (approximately 0.833)",
+        "display_string": "5/6 (or 10/12)",
         "normalized_value": 0.8333,
         "fraction": {
           "numerator": 5,
           "denominator": 6
         },
-        "acceptable_margin": 0.025
+        "acceptable_margin": 0.03
       },
       "mechanic_payload": {
         "type": "number_line_slider",
         "config": {
-          "min_value": 0.5,
+          "min_value": 0.0,
           "max_value": 1.0,
           "step_fraction": {
             "numerator": 1,
@@ -532,7 +527,7 @@ window.SONAR_QUESTIONS = {
             "denominator": 6
           },
           "target_decimal": 0.8333,
-          "snap_tolerance": 0.025
+          "snap_tolerance": 0.04
         }
       },
       "seda_domain": "4.NF.A (Equivalence)",

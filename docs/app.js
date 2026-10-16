@@ -320,20 +320,33 @@ class CylinderComponent {
   }
 
   applySnap() {
-    const target = this.config.target_ratio;
-    if (Math.abs(this.currentRatio - target) <= this.snapTolerance) {
-      this.currentRatio = target;
-      AppState.snapApplied = true;
-    } else {
-      AppState.snapApplied = false;
+    const ticks = this.config.major_ticks || [0, 250, 500, 750, 1000];
+    const maxVal = this.config.max_capacity_ml || 1000;
+    const possibleRatios = ticks.map((t) => t / maxVal);
+
+    let closest = possibleRatios[0];
+    let minDiff = Math.abs(this.currentRatio - closest);
+    for (let r of possibleRatios) {
+      const diff = Math.abs(this.currentRatio - r);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closest = r;
+      }
     }
+    this.currentRatio = closest;
+    AppState.snapApplied = true;
   }
 
   syncTelemetry() {
-    const ml = Math.round(this.currentRatio * this.config.max_capacity_ml);
-    AppState.currentValueDisplay = `${(this.currentRatio * 100).toFixed(0)}% (${ml} ${this.config.unit_label || 'mL'})`;
+    let display = `${Math.round(this.currentRatio * 100)}%`;
+    if (this.config.target_fraction) {
+      const den = this.config.target_fraction.denominator;
+      const num = Math.round(this.currentRatio * den);
+      display = num === 0 ? '0' : (num === den ? '1 (Full)' : `${num}/${den}`);
+    }
+    AppState.currentValueDisplay = display;
     const target = this.config.target_ratio;
-    AppState.isCurrentAnswerCorrect = Math.abs(this.currentRatio - target) <= this.snapTolerance;
+    AppState.isCurrentAnswerCorrect = Math.abs(this.currentRatio - target) <= 0.02;
     updateHUD();
   }
 
@@ -393,7 +406,7 @@ class CylinderComponent {
     const ticks = this.config.major_ticks || [0, 250, 500, 750, 1000];
     const maxVal = this.config.max_capacity_ml || 1000;
 
-    ticks.forEach((tickVal) => {
+    ticks.forEach((tickVal, idx) => {
       const ratio = tickVal / maxVal;
       const tickY = cylY + cylH - (cylH * ratio);
 
@@ -405,9 +418,20 @@ class CylinderComponent {
       ctx.stroke();
 
       ctx.fillStyle = '#CBD5E1';
-      ctx.font = '600 11px monospace';
+      ctx.font = '600 12px sans-serif';
       ctx.textAlign = 'left';
-      ctx.fillText(`${tickVal}`, cylX + cylW + 8, tickY + 4);
+
+      let labelText = `${tickVal}`;
+      if (this.config.tick_fraction_labels && this.config.tick_fraction_labels[idx]) {
+        labelText = this.config.tick_fraction_labels[idx];
+      } else if (this.config.target_fraction) {
+        const den = this.config.target_fraction.denominator;
+        const num = Math.round(ratio * den);
+        if (ratio === 0) labelText = '0';
+        else if (ratio >= 0.99) labelText = '1 (Full)';
+        else labelText = `${num}/${den}`;
+      }
+      ctx.fillText(labelText, cylX + cylW + 8, tickY + 4);
     });
 
     // Glass Borders
@@ -422,9 +446,31 @@ class CylinderComponent {
 
     // Interactive Drag Handle
     const handleY = Math.max(cylY, Math.min(cylY + cylH, fillY));
+
+    // Handle bubble with fraction readout
+    let fracText = `${Math.round(this.currentRatio * 100)}%`;
+    if (this.config.target_fraction) {
+      const den = this.config.target_fraction.denominator;
+      const num = Math.round(this.currentRatio * den);
+      fracText = num === 0 ? '0' : (num === den ? '1 (Full)' : `${num}/${den}`);
+    }
+
+    ctx.fillStyle = '#0F172A';
+    ctx.strokeStyle = '#38BDF8';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(cylX - 86, handleY - 14, 60, 28, 6);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#38BDF8';
+    ctx.font = '700 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(fracText, cylX - 56, handleY + 4);
+
     ctx.fillStyle = '#FFFFFF';
     ctx.beginPath();
-    ctx.arc(cylX - 18, handleY, 14, 0, Math.PI * 2);
+    ctx.arc(cylX - 16, handleY, 14, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = '#38BDF8';
     ctx.lineWidth = 3;
@@ -433,7 +479,7 @@ class CylinderComponent {
     ctx.fillStyle = '#0F172A';
     ctx.font = '800 12px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('↕', cylX - 18, handleY + 4);
+    ctx.fillText('↕', cylX - 16, handleY + 4);
   }
 
   destroy() {
@@ -596,7 +642,7 @@ class NumberLineSliderComponent {
       max_value: 1.0,
       step_fraction: { numerator: 1, denominator: 8 },
       target_decimal: 0.625,
-      snap_tolerance: 0.025
+      snap_tolerance: 0.035
     };
 
     this.min = this.config.min_value;
@@ -627,14 +673,33 @@ class NumberLineSliderComponent {
     this.thumb = document.createElement('div');
     this.thumb.className = 'nl-slider-thumb';
     this.thumb.innerHTML = `
-      <div class="nl-callout" id="nl-callout-bubble">${this.currentVal.toFixed(2)}</div>
-      <div style="width:12px; height:12px; background:#3B82F6; border-radius:50%;"></div>
+      <div class="nl-callout" id="nl-callout-bubble">${this.getFractionDisplay(this.currentVal)}</div>
+      <div style="width:14px; height:14px; background:#38BDF8; border:2px solid #FFFFFF; border-radius:50%;"></div>
     `;
     this.trackWrapper.appendChild(this.thumb);
 
     this.initEvents();
     this.updateThumbPosition();
     this.syncTelemetry();
+  }
+
+  getFractionDisplay(val) {
+    const den = this.config.step_fraction?.denominator || 8;
+    const numSteps = Math.round((val - this.min) / this.step);
+    const steppedVal = this.min + numSteps * this.step;
+
+    if (this.max > 1) {
+      const whole = Math.floor(steppedVal + 0.001);
+      const rem = Math.round((steppedVal - whole) * den);
+      if (rem === 0) return `${whole}`;
+      if (whole === 0) return `${rem}/${den}`;
+      return `${whole} ${rem}/${den}`;
+    }
+
+    const n = Math.round(steppedVal * den);
+    if (n === 0) return '0';
+    if (n === den) return '1';
+    return `${n}/${den}`;
   }
 
   renderTicks() {
@@ -655,7 +720,7 @@ class NumberLineSliderComponent {
         const label = document.createElement('div');
         label.className = 'nl-label';
         label.style.left = `${pct}%`;
-        label.textContent = Number.isInteger(val) ? val.toString() : val.toFixed(1);
+        label.textContent = Number.isInteger(val) ? val.toString() : this.getFractionDisplay(val);
         this.ticksContainer.appendChild(label);
       }
     }
@@ -670,7 +735,7 @@ class NumberLineSliderComponent {
 
       const nearestStep = Math.round((val - this.min) / this.step);
       const snappedVal = this.min + nearestStep * this.step;
-      if (Math.abs(val - snappedVal) <= (this.config.snap_tolerance || 0.025)) {
+      if (Math.abs(val - snappedVal) <= (this.config.snap_tolerance || 0.04)) {
         val = snappedVal;
         AppState.snapApplied = true;
       } else {
@@ -707,12 +772,12 @@ class NumberLineSliderComponent {
     const pct = ((this.currentVal - this.min) / range) * 100;
     this.thumb.style.left = `${pct}%`;
     const callout = document.getElementById('nl-callout-bubble');
-    if (callout) callout.textContent = this.currentVal.toFixed(2);
+    if (callout) callout.textContent = this.getFractionDisplay(this.currentVal);
   }
 
   syncTelemetry() {
-    AppState.currentValueDisplay = `${this.currentVal.toFixed(3)}`;
-    const tol = this.config.snap_tolerance || 0.025;
+    AppState.currentValueDisplay = this.getFractionDisplay(this.currentVal);
+    const tol = this.config.snap_tolerance || 0.035;
     AppState.isCurrentAnswerCorrect = Math.abs(this.currentVal - this.target) <= tol;
     updateHUD();
   }
@@ -853,24 +918,24 @@ class NumericFractionInputComponent {
   syncTelemetry() {
     const num = parseInt(this.numInput.value, 10);
     const den = parseInt(this.denInput.value, 10);
-    const whole = this.wholeInput ? parseInt(this.wholeInput.value, 10) : 0;
+    const whole = (this.wholeInput && this.wholeInput.value.trim() !== '') ? parseInt(this.wholeInput.value, 10) : 0;
 
-    let display = `${num || 0}/${den || 0}`;
-    if (this.wholeInput && whole > 0) display = `${whole} ${display}`;
+    let display = `${isNaN(num) ? 0 : num}/${isNaN(den) ? 0 : den}`;
+    if (this.wholeInput && !isNaN(whole) && whole > 0) display = `${whole} ${display}`;
     AppState.currentValueDisplay = display;
 
     let correct = false;
-    if (this.config.allow_mixed_number && whole > 0) {
+    if (!isNaN(num) && !isNaN(den) && den > 0) {
+      const studentVal = (whole * den + num) / den;
+
+      const targetN = this.config.target_numerator || 0;
+      const targetD = this.config.target_denominator || 1;
       const targetW = this.config.target_whole || 0;
-      const targetN = this.config.target_numerator;
-      const targetD = this.config.target_denominator;
-      correct = (whole === targetW && num === targetN && den === targetD);
-    } else {
-      const targetN = this.config.target_numerator;
-      const targetD = this.config.target_denominator;
-      const val = den > 0 ? num / den : -1;
-      const targetVal = targetD > 0 ? targetN / targetD : -2;
-      correct = Math.abs(val - targetVal) < 0.001;
+      const targetVal = (targetW > 0 && targetN < targetD)
+        ? (targetW * targetD + targetN) / targetD
+        : targetN / targetD;
+
+      correct = Math.abs(studentVal - targetVal) < 0.001;
     }
 
     AppState.isCurrentAnswerCorrect = correct;
