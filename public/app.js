@@ -1919,10 +1919,10 @@ document.addEventListener('DOMContentLoaded', () => {
         AppState.onboarding.baselineMotorLatencyMs = Math.round((performance.now() - calStartMs) / 3);
         
         chkInput.classList.add('is-done');
-        chkInput.innerHTML = `<span class="checklist-icon">✓</span><span>Input Acknowledged: ${AppState.pointerType.toUpperCase()} recognized and responsive.</span>`;
+        chkInput.innerHTML = `<span class="checklist-icon">✓</span><span>Screen check passed! Touch and clicks are working.</span>`;
         
         chkLatency.classList.add('is-done');
-        chkLatency.innerHTML = `<span class="checklist-icon">✓</span><span>Motor Baseline Latency: ${AppState.onboarding.baselineMotorLatencyMs} ms calibrated.</span>`;
+        chkLatency.innerHTML = `<span class="checklist-icon">✓</span><span>Ready to go! All 3 circles tapped.</span>`;
         
         startDiagBtn.disabled = false;
         startDiagBtn.style.opacity = '1.0';
@@ -1936,7 +1936,7 @@ document.addEventListener('DOMContentLoaded', () => {
     speakPromptAloud("Sound check complete! Welcome to Sonar Math. Your audio and screen are ready.");
     AppState.onboarding.audioTested = true;
     chkSound.classList.add('is-done');
-    chkSound.innerHTML = `<span class="checklist-icon">✓</span><span>Sound & Voice: Audio prompt synthesis verified.</span>`;
+    chkSound.innerHTML = `<span class="checklist-icon">✓</span><span>Sound check passed! Voice audio is working.</span>`;
   });
 
   startDiagBtn.addEventListener('click', () => FSM.goToScreen(5));
