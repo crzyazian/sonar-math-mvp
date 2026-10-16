@@ -607,10 +607,16 @@ class GridComponent {
     this.cells.forEach((cell) => {
       cell.addEventListener('pointerdown', (e) => {
         this.isPointerDown = true;
+        this.lastActionTime = Date.now();
         handleAction(cell, e);
       });
       cell.addEventListener('pointerenter', (e) => {
         if (this.isPointerDown) handleAction(cell, e);
+      });
+      cell.addEventListener('click', (e) => {
+        if (!this.lastActionTime || (Date.now() - this.lastActionTime > 300)) {
+          handleAction(cell, e);
+        }
       });
     });
 
