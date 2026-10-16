@@ -274,11 +274,11 @@ class CylinderComponent {
   handleResize() {
     const rect = this.container.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
-    this.width = rect.width;
+    this.width = rect.width > 0 ? rect.width : (this.container.clientWidth || 600);
     this.height = 340;
-    this.canvas.width = this.width * dpr;
-    this.canvas.height = this.height * dpr;
-    this.ctx.scale(dpr, dpr);
+    this.canvas.width = Math.round(this.width * dpr);
+    this.canvas.height = Math.round(this.height * dpr);
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     this.render();
   }
 
@@ -360,9 +360,12 @@ class CylinderComponent {
   }
 
   render() {
+    if (!this.width || this.width <= 0) {
+      this.handleResize();
+    }
     const ctx = this.ctx;
-    const w = this.width;
-    const h = this.height;
+    const w = this.width || 600;
+    const h = this.height || 340;
     ctx.clearRect(0, 0, w, h);
 
     const cylW = Math.min(180, w * 0.4);
@@ -459,7 +462,11 @@ class CylinderComponent {
     ctx.strokeStyle = '#38BDF8';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.roundRect(cylX - 86, handleY - 14, 60, 28, 6);
+    if (typeof ctx.roundRect === 'function') {
+      ctx.roundRect(cylX - 86, handleY - 14, 60, 28, 6);
+    } else {
+      ctx.rect(cylX - 86, handleY - 14, 60, 28);
+    }
     ctx.fill();
     ctx.stroke();
 
@@ -952,6 +959,7 @@ class NumericFractionInputComponent {
 // ============================================================================
 
 function mountDiagnosticQuestion(index) {
+  const q = QUESTIONS_SOURCE[index] || QUESTIONS_SOURCE[0];
   AppState.activeQuestionIndex = index;
   AppState.mountTimeMs = performance.now();
   AppState.firstInteractionMs = 0;
@@ -989,6 +997,12 @@ function mountDiagnosticQuestion(index) {
   } else if (mType === 'numeric_fraction_input') {
     AppState.activeComponent = new NumericFractionInputComponent(viewport, q);
   }
+
+  requestAnimationFrame(() => {
+    if (AppState.activeComponent && typeof AppState.activeComponent.handleResize === 'function') {
+      AppState.activeComponent.handleResize();
+    }
+  });
 
   updateHUD();
 }
