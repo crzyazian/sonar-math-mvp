@@ -895,9 +895,12 @@ function mountDiagnosticQuestion(index) {
   AppState.currentValueDisplay = '';
   AppState.isCurrentAnswerCorrect = false;
 
-  const q = QUESTIONS_SOURCE[index] || QUESTIONS_SOURCE[0];
-
-  document.getElementById('prompt-badge').textContent = `Phase ${q.target_phase} • ${q.modality.toUpperCase()}`;
+  const modalityFriendly = {
+    continuous: '🧪 Water & Sliders',
+    discrete: '🟦 Blocks & Grids',
+    abstract: '🔢 Numbers & Equations'
+  };
+  document.getElementById('prompt-badge').textContent = modalityFriendly[q.modality] || 'Math Challenge';
   document.getElementById('question-progress-badge').textContent = `Question ${q.item_index} of 15`;
   document.getElementById('prompt-title').textContent = q.prompt_text;
   document.getElementById('prompt-subtitle').textContent = q.sub_text || 'Select or adjust your response.';
@@ -1018,14 +1021,22 @@ function renderScreen20Delta() {
   const nonPrefScore = Math.round((perfMap[nonPrefKeys[0]] + perfMap[nonPrefKeys[1]]) / 2);
   const deltaCal = prefScore - nonPrefScore;
 
+  const friendlyModNames = {
+    discrete: 'Blocks & Grids',
+    continuous: 'Water & Sliders',
+    abstract: 'Numbers & Equations'
+  };
+  const friendlyPref = friendlyModNames[pref] || 'Blocks & Grids';
+
   let alignmentInsight = '';
   if (deltaCal >= 15) {
-    alignmentInsight = `🎯 <strong>High Metacognitive Self-Awareness:</strong> Your preferred modality (${pref.toUpperCase()}) was indeed your strongest performance area (+${deltaCal}% Delta).`;
+    alignmentInsight = `🎯 <strong>Awesome Job!</strong> Your favorite way to solve math (${friendlyPref}) was also your highest scoring area!`;
   } else if (deltaCal <= -15) {
     const highestMod = Object.keys(perfMap).reduce((a, b) => perfMap[a] > perfMap[b] ? a : b);
-    alignmentInsight = `💡 <strong>Hidden Superpower Discovered:</strong> While you selected ${pref.toUpperCase()} initially, you demonstrated the highest natural mastery in ${highestMod.toUpperCase()} representations (${perfMap[highestMod]}%).`;
+    const friendlyHighest = friendlyModNames[highestMod] || highestMod;
+    alignmentInsight = `💡 <strong>Surprise Superpower!</strong> You did amazingly well when solving problems with ${friendlyHighest}!`;
   } else {
-    alignmentInsight = `⚖️ <strong>Balanced Representation Transfer:</strong> You exhibited consistent, versatile fluency across discrete models, continuous fluids, and abstract equations (±${Math.abs(deltaCal)}% Delta).`;
+    alignmentInsight = `⚖️ <strong>Well-Rounded Math Star!</strong> You did great across blocks, water pouring, and written numbers!`;
   }
 
   // Find missed items for review
@@ -1046,59 +1057,59 @@ function renderScreen20Delta() {
         <h2 class="onboarding-title" style="margin-bottom: 4px;">Diagnostic Assessment Complete!</h2>
         <p class="onboarding-desc" style="margin-bottom: 0;">
           Final Score: <strong>${totalScore} / 15 (${Math.round((totalScore / 15) * 100)}%)</strong> • 
-          Oregon ODE State Validity Cleared (TstAtmptCd: '${AppState.tstAtmptCd}', TstValidCd: '${AppState.tstValidCd}').
+          All 15 questions completed!
         </p>
       </div>
 
-      <!-- Metacognitive Delta Dashboard -->
+      <!-- Learning Match Dashboard -->
       <div class="delta-dashboard-grid">
         <div class="delta-card">
           <div class="delta-header">
-            <span class="metric-label">Self-Perceived Preference</span>
-            <span class="delta-badge-gain">Pre-Test Setup</span>
+            <span class="metric-label">Favorite Style</span>
+            <span class="delta-badge-gain">Step 2 Choice</span>
           </div>
-          <div class="delta-value" style="color: #38BDF8; font-size: 1.5rem; text-transform: capitalize;">
-            ${pref} Models
+          <div class="delta-value" style="color: #38BDF8; font-size: 1.35rem;">
+            ${friendlyPref}
           </div>
-          <span style="font-size: 0.82rem; color: #94A3B8;">Initial learning perception</span>
+          <span style="font-size: 0.82rem; color: #94A3B8;">How you like to solve math</span>
         </div>
 
         <div class="delta-card">
           <div class="delta-header">
-            <span class="metric-label">Empirical Accuracy</span>
-            <span class="delta-badge-gain">All 15 Items</span>
+            <span class="metric-label">Favorite Style Score</span>
+            <span class="delta-badge-gain">Questions</span>
           </div>
           <div class="delta-value" style="color: #10B981;">
             ${prefScore}%
           </div>
-          <span style="font-size: 0.82rem; color: #94A3B8;">In your preferred modality</span>
+          <span style="font-size: 0.82rem; color: #94A3B8;">Accuracy in your favorite style</span>
         </div>
 
         <div class="delta-card">
           <div class="delta-header">
-            <span class="metric-label">Metacognitive Delta (Δ)</span>
+            <span class="metric-label">Style Comparison</span>
             <span class="delta-badge-gain">${deltaCal >= 0 ? '+' : ''}${deltaCal}%</span>
           </div>
           <div class="delta-value" style="color: #A855F7;">
-            ${Math.abs(deltaCal)}% Δ
+            ${Math.abs(deltaCal)}%
           </div>
-          <span style="font-size: 0.82rem; color: #94A3B8;">Preference vs Non-preferred gap</span>
+          <span style="font-size: 0.82rem; color: #94A3B8;">Difference across styles</span>
         </div>
       </div>
 
-      <!-- Metacognitive Insight Banner -->
+      <!-- Insight Banner -->
       <div style="background: rgba(30, 41, 59, 0.6); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 16px 20px; margin-bottom: 24px; font-size: 0.95rem; color: #E2E8F0;">
         ${alignmentInsight}
       </div>
 
-      <!-- Qualitative Reflection & Misconception Tagging -->
+      <!-- Qualitative Reflection -->
       <div class="reflection-panel" style="margin-top: 0; margin-bottom: 24px;">
         <div class="reflection-title">
           <span>🧠</span>
-          <span>Metacognitive Reflection (Item ${focusItem.item_index})</span>
+          <span>Quick Reflection (Question ${focusItem.item_index})</span>
         </div>
         <p style="font-size: 0.92rem; color: #CBD5E1; margin-bottom: 12px;">
-          What made this problem tricky for you? Your feedback helps separate motor slips from conceptual misunderstandings:
+          What made this problem tricky for you? Tap one reason below:
         </p>
 
         <div class="misconception-chips" id="delta-reflection-chips">
@@ -1116,29 +1127,29 @@ function renderScreen20Delta() {
           </button>
         </div>
 
-        <!-- Isomorphic Retry Box -->
+        <!-- Second Chance Box -->
         <div id="isomorphic-second-chance" style="display: none; margin-top: 20px; background: rgba(15, 23, 42, 0.8); border: 1.5px solid #38BDF8; border-radius: var(--radius-md); padding: 20px;">
           <h4 style="color: #38BDF8; font-size: 1.05rem; font-weight: 700; margin-bottom: 8px;">
-            ✨ Second Chance Challenge: Show Your Growth!
+            ✨ Second Chance: Try It Again!
           </h4>
           <p id="retry-prompt-label" style="color: #FFFFFF; font-size: 0.95rem; margin-bottom: 16px;">
             Pour water until the cylinder is 4/5 full (800 mL).
           </p>
           <div id="retry-component-stage" style="min-height: 320px;"></div>
           <button id="btn-submit-retry-delta" type="button" class="btn btn-primary" style="margin-top: 12px;">
-            Submit Second Chance & Calculate Growth Delta →
+            Submit Second Chance →
           </button>
         </div>
       </div>
 
       <!-- ================================================================
-           REVIEW MISSED QUESTIONS & TRAINING MODALITY EXPLAINERS
+           REVIEW QUESTIONS & 3 WAYS TO LEARN
            ================================================================ -->
       <div class="review-section-container">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
           <div>
-            <h3 style="color: #FFFFFF; font-size: 1.25rem; font-weight: 800;">🔍 Review Questions & Learning Modalities</h3>
-            <p style="color: #94A3B8; font-size: 0.88rem;">Review any question and explore why the answer was correct across our 3 training modalities.</p>
+            <h3 style="color: #FFFFFF; font-size: 1.25rem; font-weight: 800;">🔍 Review Your Questions</h3>
+            <p style="color: #94A3B8; font-size: 0.88rem;">Check your answers and see three fun ways to solve each question!</p>
           </div>
           <button id="btn-toggle-review-missed" type="button" class="btn btn-primary" style="font-size: 0.9rem; padding: 10px 20px;">
             ${missedItems.length > 0 ? `Review Missed Questions (${missedItems.length}) ▼` : `Review All Questions ▼`}
@@ -1217,7 +1228,7 @@ function renderScreen20Delta() {
     submitRetryBtn.addEventListener('click', () => {
       AppState.isomorphicRetryAttempted = true;
       AppState.isomorphicRetryCorrect = AppState.isCurrentAnswerCorrect;
-      submitRetryBtn.textContent = AppState.isCurrentAnswerCorrect ? '✓ Second Chance Cleared (+1 Mastery Gain!)' : '✓ Retry Recorded';
+      submitRetryBtn.textContent = AppState.isCurrentAnswerCorrect ? '✓ Second Chance Cleared!' : '✓ Retry Recorded';
       submitRetryBtn.style.background = '#10B981';
       submitRetryBtn.disabled = true;
     });
@@ -1266,13 +1277,19 @@ function renderScreen20Delta() {
 }
 
 // ============================================================================
-// 8. MISSED QUESTIONS REVIEWER & MODALITY EXPLAINERS
+// 8. MISSED QUESTIONS REVIEWER & 3 WAYS TO LEARN EXPLAINERS
 // ============================================================================
 
 function renderMissedQuestionsList(items) {
   const container = document.getElementById('missed-questions-list');
   if (!container) return;
   container.innerHTML = '';
+
+  const friendlyModNames = {
+    discrete: 'Blocks & Grids',
+    continuous: 'Water & Sliders',
+    abstract: 'Numbers & Equations'
+  };
 
   items.forEach((item) => {
     const qObj = QUESTIONS_SOURCE.find((q) => q.item_index === item.item_index) || QUESTIONS_SOURCE[0];
@@ -1283,10 +1300,12 @@ function renderMissedQuestionsList(items) {
       ? '<span style="color:#10B981; font-weight:700; font-size:0.8rem;">✓ CORRECT</span>'
       : '<span style="color:#F87171; font-weight:700; font-size:0.8rem;">✗ NEEDS REVIEW</span>';
 
+    const friendlyMod = friendlyModNames[qObj.modality] || 'Math Problem';
+
     card.innerHTML = `
       <div class="missed-question-header">
         <div>
-          <strong style="color: #38BDF8; font-size: 0.95rem;">Question ${item.item_index} (${qObj.modality.toUpperCase()})</strong>
+          <strong style="color: #38BDF8; font-size: 0.95rem;">Question ${item.item_index} • ${friendlyMod}</strong>
           <h4 style="color: #FFFFFF; font-size: 1.05rem; margin-top: 2px;">${item.prompt}</h4>
         </div>
         ${statusBadge}
@@ -1294,22 +1313,22 @@ function renderMissedQuestionsList(items) {
 
       <div class="answer-comparison-box">
         <div><span style="color:#94A3B8;">Your Answer:</span> <strong style="color:${item.is_correct ? '#10B981' : '#F87171'};">${item.value || 'None'}</strong></div>
-        <div><span style="color:#94A3B8;">Target Answer:</span> <strong style="color:#38BDF8;">${qObj.correct_answer?.display_string || 'Target'}</strong></div>
+        <div><span style="color:#94A3B8;">Correct Answer:</span> <strong style="color:#38BDF8;">${qObj.correct_answer?.display_string || 'Target'}</strong></div>
       </div>
 
       <div>
-        <span style="font-size: 0.8rem; font-weight: 700; color: #94A3B8; text-transform: uppercase; margin-bottom: 8px; display: block;">
-          Understand Why (Choose an interactive training lens):
+        <span style="font-size: 0.82rem; font-weight: 700; color: #94A3B8; text-transform: uppercase; margin-bottom: 8px; display: block;">
+          See How to Solve It (Pick a way to learn):
         </span>
         <div class="modality-explainer-row">
-          <button type="button" class="modality-pill-btn btn-discrete" data-qindex="${item.item_index}" data-modality="discrete" title="Learn via partitioned blocks and area models">
-            🟦 Discrete Area Lens
+          <button type="button" class="modality-pill-btn btn-discrete" data-qindex="${item.item_index}" data-modality="discrete" title="See how to solve with shaded blocks">
+            🟦 Blocks & Grids
           </button>
-          <button type="button" class="modality-pill-btn btn-continuous" data-qindex="${item.item_index}" data-modality="continuous" title="Learn via fluid volume and number line sliding">
-            🧪 Continuous Fluid Lens
+          <button type="button" class="modality-pill-btn btn-continuous" data-qindex="${item.item_index}" data-modality="continuous" title="See how to solve with water pouring and sliders">
+            🧪 Water & Sliders
           </button>
-          <button type="button" class="modality-pill-btn btn-abstract" data-qindex="${item.item_index}" data-modality="abstract" title="Learn via math formulas and symbolic operations">
-            🔢 Abstract Equation Lens
+          <button type="button" class="modality-pill-btn btn-abstract" data-qindex="${item.item_index}" data-modality="abstract" title="See how to solve with numbers and math facts">
+            🔢 Numbers & Equations
           </button>
         </div>
       </div>
@@ -1343,7 +1362,7 @@ function openModalityExplanationModal(itemIndex, modality) {
     <div style="background: rgba(255,255,255,0.04); border-radius: 8px; padding: 14px; margin-bottom: 16px; border-left: 3px solid #38BDF8;">
       <div style="font-size: 0.82rem; color: #94A3B8; text-transform: uppercase; font-weight: 700; margin-bottom: 4px;">Question Scenario</div>
       <div style="color: #FFFFFF; font-size: 0.98rem; font-weight: 600; margin-bottom: 6px;">${q.prompt_text}</div>
-      <div style="font-size: 0.88rem; color: #10B981;">Target Answer: <strong>${q.correct_answer?.display_string}</strong></div>
+      <div style="font-size: 0.88rem; color: #10B981;">Correct Answer: <strong>${q.correct_answer?.display_string}</strong></div>
     </div>
     <div style="line-height: 1.6; font-size: 0.95rem;">
       ${explanation.contentHtml}
@@ -1355,78 +1374,58 @@ function openModalityExplanationModal(itemIndex, modality) {
 
 function getPedagogicalExplanation(q, modality) {
   const targetStr = q.correct_answer.display_string;
-  const domain = q.seda_domain || '4.NF Standards';
-  const objective = q.pedagogical_objective || 'Fraction comprehension';
 
   if (modality === 'discrete') {
     return {
       icon: '🟦',
-      modalityTitle: 'Discrete Area Grid Lens',
+      modalityTitle: 'Blocks & Grids',
       contentHtml: `
-        <p style="margin-bottom: 12px;">
-          <strong>Concept Focus:</strong> ${objective}
-        </p>
-        <p style="margin-bottom: 12px;">
-          In our <strong>Discrete Area Modality</strong>, fractions are represented as collections of identical, tangible units (such as square blocks or grid tiles).
-        </p>
-        <div style="padding: 14px; background: rgba(59, 130, 246, 0.12); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 6px; margin-bottom: 12px;">
-          <div style="color: #60A5FA; font-weight: 700; margin-bottom: 4px;">How to solve using blocks:</div>
-          <p style="margin: 0; color: #E2E8F0;">
-            1. Look at the total number of equal parts that make up 1 whole (the denominator).<br>
-            2. Count or shade exactly the required target parts (the numerator).<br>
-            3. For equivalence (e.g., 2/3 = 8/12), the shape of the shaded region takes up the same fraction of the total rectangular area: <strong>${targetStr}</strong>.
+        <div style="padding: 16px; background: rgba(59, 130, 246, 0.12); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; margin-bottom: 12px;">
+          <div style="color: #60A5FA; font-weight: 700; font-size: 1.05rem; margin-bottom: 8px;">Solving with Blocks & Pictures:</div>
+          <p style="margin: 0 0 10px 0; color: #E2E8F0; line-height: 1.6;">
+            1. <strong>Bottom Number (Denominator):</strong> Count all the equal boxes that make up one whole block.<br>
+            2. <strong>Top Number (Numerator):</strong> Color in or count just the pieces you need.<br>
+            3. Together, the shaded picture shows the answer: <strong>${targetStr}</strong>!
           </p>
         </div>
-        <p style="font-size: 0.88rem; color: #94A3B8;">
-          Standard Alignment: ${domain}. Discrete models train spatial awareness and part-to-whole decomposition.
+        <p style="font-size: 0.88rem; color: #94A3B8; margin: 0;">
+          💡 <em>Tip: Drawing rectangles and dividing them into equal squares makes fractions easy to see!</em>
         </p>
       `
     };
   } else if (modality === 'continuous') {
     return {
       icon: '🧪',
-      modalityTitle: 'Continuous Fluid & Slider Lens',
+      modalityTitle: 'Water & Sliders',
       contentHtml: `
-        <p style="margin-bottom: 12px;">
-          <strong>Concept Focus:</strong> ${objective}
-        </p>
-        <p style="margin-bottom: 12px;">
-          In our <strong>Continuous Modality</strong>, fractions are continuous magnitudes—like liquid filling a graduated cylinder or a vehicle traveling along a number line.
-        </p>
-        <div style="padding: 14px; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 6px; margin-bottom: 12px;">
-          <div style="color: #34D399; font-weight: 700; margin-bottom: 4px;">How to solve using continuous measurement:</div>
-          <p style="margin: 0; color: #E2E8F0;">
-            1. Identify the capacity scale (e.g. 0 to 1, or 0 to 1,000 mL).<br>
-            2. Notice benchmark checkpoints: 1/4 (25%), 1/2 (50%), 3/4 (75%).<br>
-            3. The target <strong>${targetStr}</strong> corresponds to a precise physical position along the gradient, confirming value through measurement rather than counting separate items.
+        <div style="padding: 16px; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; margin-bottom: 12px;">
+          <div style="color: #34D399; font-weight: 700; font-size: 1.05rem; margin-bottom: 8px;">Solving with Water & Number Lines:</div>
+          <p style="margin: 0 0 10px 0; color: #E2E8F0; line-height: 1.6;">
+            1. <strong>Look at the marks:</strong> Check where 0 is at the bottom and 1 whole is at the top.<br>
+            2. <strong>Find halfway:</strong> Use 1/2 as a benchmark to help you see if your fraction is smaller or larger than half.<br>
+            3. Pouring or sliding to exactly <strong>${targetStr}</strong> fills the container to the right line!
           </p>
         </div>
-        <p style="font-size: 0.88rem; color: #94A3B8;">
-          Standard Alignment: ${domain}. Continuous training prevents "whole number bias" by reinforcing that fractions represent single points on a continuum.
+        <p style="font-size: 0.88rem; color: #94A3B8; margin: 0;">
+          💡 <em>Tip: Think of pouring milk into a measuring cup when baking cookies!</em>
         </p>
       `
     };
   } else {
     return {
       icon: '🔢',
-      modalityTitle: 'Abstract Symbolic Equation Lens',
+      modalityTitle: 'Numbers & Equations',
       contentHtml: `
-        <p style="margin-bottom: 12px;">
-          <strong>Concept Focus:</strong> ${objective}
-        </p>
-        <p style="margin-bottom: 12px;">
-          In our <strong>Abstract Modality</strong>, fractions are computed using formal mathematical notation, arithmetic properties, and algebraic equivalence.
-        </p>
-        <div style="padding: 14px; background: rgba(168, 85, 247, 0.12); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 6px; margin-bottom: 12px;">
-          <div style="color: #C084FC; font-weight: 700; margin-bottom: 4px;">How to solve using symbolic equations:</div>
-          <p style="margin: 0; color: #E2E8F0;">
-            • <strong>Equivalence Principle:</strong> Multiplying or dividing numerator and denominator by the same non-zero factor preserves the fraction's value (a/b = a·k / b·k).<br>
-            • <strong>Addition/Subtraction:</strong> Like denominators allow direct operation on numerators (a/c ± b/c = (a ± b)/c).<br>
-            • Solving symbolically confirms that the exact value is <strong>${targetStr}</strong>.
+        <div style="padding: 16px; background: rgba(168, 85, 247, 0.12); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 8px; margin-bottom: 12px;">
+          <div style="color: #C084FC; font-weight: 700; font-size: 1.05rem; margin-bottom: 8px;">Solving with Written Numbers:</div>
+          <p style="margin: 0 0 10px 0; color: #E2E8F0; line-height: 1.6;">
+            1. <strong>Keep the bottom numbers:</strong> When you add or subtract fractions with the same denominator, the bottom number stays the same.<br>
+            2. <strong>Do math on top:</strong> Add or subtract the top numbers just like regular numbers.<br>
+            3. Calculating gives you the final answer: <strong>${targetStr}</strong>!
           </p>
         </div>
-        <p style="font-size: 0.88rem; color: #94A3B8;">
-          Standard Alignment: ${domain}. Abstract manipulation establishes fluency for upper elementary algebra and standardized testing.
+        <p style="font-size: 0.88rem; color: #94A3B8; margin: 0;">
+          💡 <em>Tip: The bottom number names the fraction piece, and the top number counts how many pieces you have!</em>
         </p>
       `
     };
